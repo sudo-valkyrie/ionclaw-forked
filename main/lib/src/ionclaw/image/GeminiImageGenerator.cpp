@@ -17,13 +17,13 @@ namespace image
 {
 
 GeminiImageGenerator::GeminiImageGenerator(std::string providerName)
-    : name_(std::move(providerName))
+    : name(std::move(providerName))
 {
 }
 
 std::string GeminiImageGenerator::providerName() const
 {
-    return name_;
+    return name;
 }
 
 bool GeminiImageGenerator::isImagenModel(const std::string &modelId)
@@ -31,10 +31,7 @@ bool GeminiImageGenerator::isImagenModel(const std::string &modelId)
     return modelId.find("imagen") != std::string::npos;
 }
 
-std::string GeminiImageGenerator::generate(const std::string &prompt,
-                                           const std::string &filename,
-                                           const nlohmann::json &params,
-                                           const ImageGeneratorContext &context) const
+std::string GeminiImageGenerator::generate(const std::string &prompt, const std::string &filename, const nlohmann::json &params, const ImageGeneratorContext &context) const
 {
     if (!context.config)
     {
@@ -72,13 +69,7 @@ std::string GeminiImageGenerator::generate(const std::string &prompt,
     return generateContent(prompt, filename, params, context, apiKey, baseUrl, modelId);
 }
 
-std::string GeminiImageGenerator::generateContent(const std::string &prompt,
-                                                  const std::string &filename,
-                                                  const nlohmann::json &params,
-                                                  const ImageGeneratorContext &context,
-                                                  const std::string &apiKey,
-                                                  const std::string &baseUrl,
-                                                  const std::string &modelId) const
+std::string GeminiImageGenerator::generateContent(const std::string &prompt, const std::string &filename, const nlohmann::json &params, const ImageGeneratorContext &context, const std::string &apiKey, const std::string &baseUrl, const std::string &modelId) const
 {
     std::string url = baseUrl + "/v1beta/models/" + modelId + ":generateContent";
 
@@ -86,8 +77,7 @@ std::string GeminiImageGenerator::generateContent(const std::string &prompt,
     nlohmann::json parts = nlohmann::json::array();
 
     bool restrict = !context.config || context.config->tools.restrictToWorkspace;
-    auto resolvedRefs = ImageGeneratorHelper::resolveReferencePaths(
-        params, context.projectPath, context.workspacePath, context.publicPath, restrict);
+    auto resolvedRefs = ImageGeneratorHelper::resolveReferencePaths(params, context.projectPath, context.workspacePath, context.publicPath, restrict);
 
     for (const auto &resolved : resolvedRefs)
     {
@@ -158,8 +148,7 @@ std::string GeminiImageGenerator::generateContent(const std::string &prompt,
     if (response.statusCode != 200)
     {
         spdlog::error("[GeminiImageGenerator] API error HTTP {}: {}", response.statusCode, ionclaw::util::StringHelper::utf8SafeTruncate(response.body, 500));
-        return "Error: image generation API returned HTTP " + std::to_string(response.statusCode) + ": " +
-               ionclaw::util::StringHelper::utf8SafeTruncate(response.body, 500);
+        return "Error: image generation API returned HTTP " + std::to_string(response.statusCode) + ": " + ionclaw::util::StringHelper::utf8SafeTruncate(response.body, 500);
     }
 
     // parse response and extract base64 image
@@ -197,8 +186,7 @@ std::string GeminiImageGenerator::generateContent(const std::string &prompt,
     }
 
     std::string imageData = util::Base64::decode(b64);
-    std::string saved = ImageGeneratorHelper::saveToPublicMedia(
-        imageData, context.publicPath, filename, context.config->server.publicUrl);
+    std::string saved = ImageGeneratorHelper::saveToPublicMedia(imageData, context.publicPath, filename, context.config->server.publicUrl);
 
     if (saved.empty())
     {
@@ -208,13 +196,7 @@ std::string GeminiImageGenerator::generateContent(const std::string &prompt,
     return "Image saved: " + saved;
 }
 
-std::string GeminiImageGenerator::predict(const std::string &prompt,
-                                          const std::string &filename,
-                                          const nlohmann::json &params,
-                                          const ImageGeneratorContext &context,
-                                          const std::string &apiKey,
-                                          const std::string &baseUrl,
-                                          const std::string &modelId) const
+std::string GeminiImageGenerator::predict(const std::string &prompt, const std::string &filename, const nlohmann::json &params, const ImageGeneratorContext &context, const std::string &apiKey, const std::string &baseUrl, const std::string &modelId) const
 {
     // imagen models use the :predict endpoint (text-to-image only, no reference images)
     std::string url = baseUrl + "/v1beta/models/" + modelId + ":predict";
@@ -258,8 +240,7 @@ std::string GeminiImageGenerator::predict(const std::string &prompt,
     if (response.statusCode != 200)
     {
         spdlog::error("[GeminiImageGenerator] Imagen API error HTTP {}: {}", response.statusCode, ionclaw::util::StringHelper::utf8SafeTruncate(response.body, 500));
-        return "Error: image generation API returned HTTP " + std::to_string(response.statusCode) + ": " +
-               ionclaw::util::StringHelper::utf8SafeTruncate(response.body, 500);
+        return "Error: image generation API returned HTTP " + std::to_string(response.statusCode) + ": " + ionclaw::util::StringHelper::utf8SafeTruncate(response.body, 500);
     }
 
     auto json = nlohmann::json::parse(response.body, nullptr, false);
@@ -286,8 +267,7 @@ std::string GeminiImageGenerator::predict(const std::string &prompt,
     }
 
     std::string imageData = util::Base64::decode(b64);
-    std::string saved = ImageGeneratorHelper::saveToPublicMedia(
-        imageData, context.publicPath, filename, context.config->server.publicUrl);
+    std::string saved = ImageGeneratorHelper::saveToPublicMedia(imageData, context.publicPath, filename, context.config->server.publicUrl);
 
     if (saved.empty())
     {

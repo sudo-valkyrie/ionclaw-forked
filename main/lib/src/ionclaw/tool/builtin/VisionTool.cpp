@@ -179,25 +179,21 @@ ToolResult VisionTool::execute(const nlohmann::json &params, const ToolContext &
     auto base64Input = params.value("base64", "");
     auto question = params.value("question", "");
 
-    spdlog::info("vision: execute (path={}, url={}, base64_len={}, question={})",
-                 path.empty() ? "(none)" : path,
-                 url.empty() ? "(none)" : url,
-                 base64Input.size(),
-                 question.empty() ? "(none)" : question);
+    spdlog::info("[VisionTool] vision: execute (path={}, url={}, base64_len={}, question={})", path.empty() ? "(none)" : path, url.empty() ? "(none)" : url, base64Input.size(), question.empty() ? "(none)" : question);
 
     // exactly one source required
     int sources = (!path.empty() ? 1 : 0) + (!url.empty() ? 1 : 0) + (!base64Input.empty() ? 1 : 0);
 
     if (sources == 0)
     {
-        spdlog::warn("vision: no image source provided");
+        spdlog::warn("[VisionTool] vision: no image source provided");
         return "Error: you must provide one of 'path', 'url', or 'base64'. "
                "For user-uploaded images, use the path from the [image attached: path] annotation.";
     }
 
     if (sources > 1)
     {
-        spdlog::warn("vision: multiple image sources provided");
+        spdlog::warn("[VisionTool] vision: multiple image sources provided");
         return "Error: provide only one image source — 'path', 'url', or 'base64' — not multiple.";
     }
 
@@ -215,11 +211,11 @@ ToolResult VisionTool::execute(const nlohmann::json &params, const ToolContext &
         {
             bool restrict = !context.config || context.config->tools.restrictToWorkspace;
             path = ToolHelper::validateAndResolvePath(context.projectPath, context.workspacePath, path, context.publicPath, restrict);
-            spdlog::info("vision: resolved path to: {}", path);
+            spdlog::info("[VisionTool] vision: resolved path to: {}", path);
         }
         catch (const std::exception &e)
         {
-            spdlog::warn("vision: path resolution failed: {}", e.what());
+            spdlog::warn("[VisionTool] vision: path resolution failed: {}", e.what());
             return "Error: " + std::string(e.what());
         }
 
@@ -227,13 +223,13 @@ ToolResult VisionTool::execute(const nlohmann::json &params, const ToolContext &
 
         if (!std::filesystem::exists(path, ec) || ec)
         {
-            spdlog::warn("vision: file not found: {} ({})", path, ec ? ec.message() : "");
+            spdlog::warn("[VisionTool] vision: file not found: {} ({})", path, ec ? ec.message() : "");
             return "Error: file not found" + (ec ? " (" + ec.message() + ")" : "") + ": " + path;
         }
 
         if (!std::filesystem::is_regular_file(path, ec) || ec)
         {
-            spdlog::warn("vision: not a regular file: {} ({})", path, ec ? ec.message() : "");
+            spdlog::warn("[VisionTool] vision: not a regular file: {} ({})", path, ec ? ec.message() : "");
             return "Error: not a regular file" + (ec ? " (" + ec.message() + ")" : "") + ": " + path;
         }
 
@@ -251,21 +247,20 @@ ToolResult VisionTool::execute(const nlohmann::json &params, const ToolContext &
 
         if (ec)
         {
-            spdlog::warn("vision: cannot read file size: {} ({})", path, ec.message());
+            spdlog::warn("[VisionTool] vision: cannot read file size: {} ({})", path, ec.message());
             return "Error: cannot read file size (" + ec.message() + "): " + path;
         }
 
         if (fileSize == 0)
         {
-            spdlog::warn("vision: file is empty: {}", path);
+            spdlog::warn("[VisionTool] vision: file is empty: {}", path);
             return "Error: file is empty: " + path;
         }
 
         if (fileSize > MAX_IMAGE_BYTES)
         {
-            spdlog::warn("vision: file too large: {} ({}MB)", path, fileSize / (1024 * 1024));
-            return "Error: file too large (" + std::to_string(fileSize / (1024 * 1024)) +
-                   "MB, max " + std::to_string(MAX_IMAGE_BYTES / (1024 * 1024)) + "MB): " + path;
+            spdlog::warn("[VisionTool] vision: file too large: {} ({}MB)", path, fileSize / (1024 * 1024));
+            return "Error: file too large (" + std::to_string(fileSize / (1024 * 1024)) + "MB, max " + std::to_string(MAX_IMAGE_BYTES / (1024 * 1024)) + "MB): " + path;
         }
 
         // read raw bytes
@@ -273,7 +268,7 @@ ToolResult VisionTool::execute(const nlohmann::json &params, const ToolContext &
 
         if (!file.good())
         {
-            spdlog::error("vision: failed to open file: {}", path);
+            spdlog::error("[VisionTool] vision: failed to open file: {}", path);
             return "Error: failed to open file: " + path;
         }
 
@@ -281,7 +276,7 @@ ToolResult VisionTool::execute(const nlohmann::json &params, const ToolContext &
 
         if (rawBytes.empty())
         {
-            spdlog::error("vision: failed to read file contents: {}", path);
+            spdlog::error("[VisionTool] vision: failed to read file contents: {}", path);
             return "Error: failed to read file: " + path;
         }
 
@@ -294,14 +289,14 @@ ToolResult VisionTool::execute(const nlohmann::json &params, const ToolContext &
             mimeType = userMime;
         }
 
-        spdlog::debug("vision: loaded file {} ({}KB, {})", path, rawBytes.size() / 1024, mimeType);
+        spdlog::debug("[VisionTool] vision: loaded file {} ({}KB, {})", path, rawBytes.size() / 1024, mimeType);
     }
 
     // ── source: remote URL ────────────────────────────────────────────────
     if (!url.empty())
     {
         sourceLabel = url;
-        spdlog::debug("vision: fetching URL: {}", url);
+        spdlog::debug("[VisionTool] vision: fetching URL: {}", url);
 
         // ssrf validation
         try
@@ -310,45 +305,36 @@ ToolResult VisionTool::execute(const nlohmann::json &params, const ToolContext &
         }
         catch (const std::exception &e)
         {
-            spdlog::warn("vision: SSRF blocked URL: {} ({})", url, e.what());
+            spdlog::warn("[VisionTool] vision: SSRF blocked URL: {} ({})", url, e.what());
             return "Error: " + std::string(e.what());
         }
 
         try
         {
-            auto response = ionclaw::util::HttpClient::request(
-                "GET", url, {}, "", 30, true,
-                ionclaw::util::SsrfGuard::validateUrl);
+            auto response = ionclaw::util::HttpClient::request("GET", url, {}, "", 30, true, ionclaw::util::SsrfGuard::validateUrl);
 
             if (response.statusCode != 200)
             {
-                spdlog::warn("vision: URL returned HTTP {}: {}", response.statusCode, url);
-                return "Error: failed to fetch image from URL (HTTP " +
-                       std::to_string(response.statusCode) + "): " + url;
+                spdlog::warn("[VisionTool] vision: URL returned HTTP {}: {}", response.statusCode, url);
+                return "Error: failed to fetch image from URL (HTTP " + std::to_string(response.statusCode) + "): " + url;
             }
 
             if (response.body.empty())
             {
-                spdlog::warn("vision: URL returned empty body: {}", url);
+                spdlog::warn("[VisionTool] vision: URL returned empty body: {}", url);
                 return "Error: URL returned empty body: " + url;
             }
 
             if (response.body.size() > MAX_IMAGE_BYTES)
             {
-                spdlog::warn("vision: image too large from URL: {} ({}MB)", url, response.body.size() / (1024 * 1024));
-                return "Error: image too large (" +
-                       std::to_string(response.body.size() / (1024 * 1024)) +
-                       "MB, max " + std::to_string(MAX_IMAGE_BYTES / (1024 * 1024)) + "MB): " + url;
+                spdlog::warn("[VisionTool] vision: image too large from URL: {} ({}MB)", url, response.body.size() / (1024 * 1024));
+                return "Error: image too large (" + std::to_string(response.body.size() / (1024 * 1024)) + "MB, max " + std::to_string(MAX_IMAGE_BYTES / (1024 * 1024)) + "MB): " + url;
             }
 
             rawBytes = std::move(response.body);
 
             // detect mime from Content-Type header first, fallback to URL extension
-            auto contentType = response.headers.count("Content-Type")
-                                   ? response.headers.at("Content-Type")
-                                   : (response.headers.count("content-type")
-                                          ? response.headers.at("content-type")
-                                          : "");
+            auto contentType = response.headers.count("Content-Type") ? response.headers.at("Content-Type") : (response.headers.count("content-type") ? response.headers.at("content-type") : "");
 
             mimeType = detectMimeFromContentType(contentType);
 
@@ -364,11 +350,11 @@ ToolResult VisionTool::execute(const nlohmann::json &params, const ToolContext &
                 mimeType = userMime;
             }
 
-            spdlog::debug("vision: fetched URL {} ({}KB, {})", url, rawBytes.size() / 1024, mimeType);
+            spdlog::debug("[VisionTool] vision: fetched URL {} ({}KB, {})", url, rawBytes.size() / 1024, mimeType);
         }
         catch (const std::exception &e)
         {
-            spdlog::error("vision: failed to fetch URL {}: {}", url, e.what());
+            spdlog::error("[VisionTool] vision: failed to fetch URL {}: {}", url, e.what());
             return "Error: failed to fetch image from URL: " + std::string(e.what());
         }
     }
@@ -408,7 +394,7 @@ ToolResult VisionTool::execute(const nlohmann::json &params, const ToolContext &
 
         if (b64Data.empty())
         {
-            spdlog::warn("vision: base64 data is empty after processing");
+            spdlog::warn("[VisionTool] vision: base64 data is empty after processing");
             return "Error: base64 data is empty after processing";
         }
 
@@ -416,19 +402,17 @@ ToolResult VisionTool::execute(const nlohmann::json &params, const ToolContext &
 
         if (rawBytes.empty())
         {
-            spdlog::warn("vision: failed to decode base64 data");
+            spdlog::warn("[VisionTool] vision: failed to decode base64 data");
             return "Error: failed to decode base64 data";
         }
 
         if (rawBytes.size() > MAX_IMAGE_BYTES)
         {
-            spdlog::warn("vision: decoded image too large ({}MB)", rawBytes.size() / (1024 * 1024));
-            return "Error: image too large (" +
-                   std::to_string(rawBytes.size() / (1024 * 1024)) +
-                   "MB, max " + std::to_string(MAX_IMAGE_BYTES / (1024 * 1024)) + "MB)";
+            spdlog::warn("[VisionTool] vision: decoded image too large ({}MB)", rawBytes.size() / (1024 * 1024));
+            return "Error: image too large (" + std::to_string(rawBytes.size() / (1024 * 1024)) + "MB, max " + std::to_string(MAX_IMAGE_BYTES / (1024 * 1024)) + "MB)";
         }
 
-        spdlog::debug("vision: decoded base64 input ({}KB, {})", rawBytes.size() / 1024, mimeType);
+        spdlog::debug("[VisionTool] vision: decoded base64 input ({}KB, {})", rawBytes.size() / 1024, mimeType);
     }
 
     // ── generate LLM-friendly preview ─────────────────────────────────────
@@ -438,18 +422,15 @@ ToolResult VisionTool::execute(const nlohmann::json &params, const ToolContext &
     auto originalSizeKB = rawBytes.size() / 1024;
 
     int w = 0, h = 0, channels = 0;
-    auto pixelsDeleter = [](unsigned char *p)
-    { if (p) stbi_image_free(p); };
-    std::unique_ptr<unsigned char, decltype(pixelsDeleter)> pixels(
-        stbi_load_from_memory(
-            reinterpret_cast<const unsigned char *>(rawBytes.data()),
-            static_cast<int>(rawBytes.size()), &w, &h, &channels, 3),
-        pixelsDeleter);
+    // clang-format off
+    auto pixelsDeleter = [](unsigned char *p) { if (p) stbi_image_free(p); };
+    // clang-format on
+    std::unique_ptr<unsigned char, decltype(pixelsDeleter)> pixels(stbi_load_from_memory(reinterpret_cast<const unsigned char *>(rawBytes.data()), static_cast<int>(rawBytes.size()), &w, &h, &channels, 3), pixelsDeleter);
 
     if (!pixels)
     {
         // svg, ico, tiff etc. can't be rasterized by stb — send raw data for the model to process
-        spdlog::warn("vision: stb_image could not decode image ({}), sending raw data", mimeType);
+        spdlog::warn("[VisionTool] vision: stb_image could not decode image ({}), sending raw data", mimeType);
 
         auto b64 = ionclaw::util::Base64::encode(rawBytes);
 
@@ -469,7 +450,7 @@ ToolResult VisionTool::execute(const nlohmann::json &params, const ToolContext &
         return result;
     }
 
-    spdlog::debug("vision: decoded pixels {}x{} ({} channels)", w, h, channels);
+    spdlog::debug("[VisionTool] vision: decoded pixels {}x{} ({} channels)", w, h, channels);
 
     // resize if wider than max preview width
     int previewW = w;
@@ -486,19 +467,16 @@ ToolResult VisionTool::execute(const nlohmann::json &params, const ToolContext &
             previewH = 1;
 
         resizedPixels.resize(static_cast<size_t>(previewW) * static_cast<size_t>(previewH) * 3);
-        auto *ok = stbir_resize_uint8_linear(
-            pixels.get(), w, h, 0,
-            resizedPixels.data(), previewW, previewH, 0, STBIR_RGB);
+        auto *ok = stbir_resize_uint8_linear(pixels.get(), w, h, 0, resizedPixels.data(), previewW, previewH, 0, STBIR_RGB);
 
         if (!ok)
         {
-            spdlog::error("vision: resize failed for {}x{} -> {}x{}", w, h, previewW, previewH);
-            return "Error: image resize failed (" + std::to_string(w) + "x" + std::to_string(h) +
-                   " -> " + std::to_string(previewW) + "x" + std::to_string(previewH) + ")";
+            spdlog::error("[VisionTool] vision: resize failed for {}x{} -> {}x{}", w, h, previewW, previewH);
+            return "Error: image resize failed (" + std::to_string(w) + "x" + std::to_string(h) + " -> " + std::to_string(previewW) + "x" + std::to_string(previewH) + ")";
         }
 
         previewData = resizedPixels.data();
-        spdlog::debug("vision: resized {}x{} -> {}x{}", w, h, previewW, previewH);
+        spdlog::debug("[VisionTool] vision: resized {}x{} -> {}x{}", w, h, previewW, previewH);
     }
 
     // encode preview as JPEG to memory
@@ -510,21 +488,16 @@ ToolResult VisionTool::execute(const nlohmann::json &params, const ToolContext &
 
     if (jpegBuf.empty())
     {
-        spdlog::error("vision: JPEG encode failed for {}x{}", previewW, previewH);
+        spdlog::error("[VisionTool] vision: JPEG encode failed for {}x{}", previewW, previewH);
         return "Error: JPEG compression failed (" + std::to_string(previewW) + "x" + std::to_string(previewH) + ")";
     }
 
-    auto previewB64 = ionclaw::util::Base64::encode(
-        reinterpret_cast<const unsigned char *>(jpegBuf.data()), jpegBuf.size());
+    auto previewB64 = ionclaw::util::Base64::encode(reinterpret_cast<const unsigned char *>(jpegBuf.data()), jpegBuf.size());
     auto previewKB = jpegBuf.size() / 1024;
 
-    spdlog::info("vision: preview {}x{} ({}KB JPEG) from original {}x{} ({}KB {})",
-                 previewW, previewH, previewKB, w, h, originalSizeKB, mimeType);
+    spdlog::info("[VisionTool] vision: preview {}x{} ({}KB JPEG) from original {}x{} ({}KB {})", previewW, previewH, previewKB, w, h, originalSizeKB, mimeType);
 
-    std::string description = "Image analyzed (" + std::to_string(w) + "x" + std::to_string(h) + ", " +
-                              std::to_string(originalSizeKB) + "KB " + mimeType + "). " +
-                              "Preview: " + std::to_string(previewW) + "x" + std::to_string(previewH) +
-                              " (" + std::to_string(previewKB) + "KB JPEG).";
+    std::string description = "Image analyzed (" + std::to_string(w) + "x" + std::to_string(h) + ", " + std::to_string(originalSizeKB) + "KB " + mimeType + "). " + "Preview: " + std::to_string(previewW) + "x" + std::to_string(previewH) + " (" + std::to_string(previewKB) + "KB JPEG).";
 
     if (!question.empty())
     {

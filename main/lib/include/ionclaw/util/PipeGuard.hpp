@@ -15,44 +15,42 @@ namespace ionclaw
 namespace util
 {
 
-// raii wrapper for popen/pclose to prevent file descriptor leaks on exceptions
 class PipeGuard
 {
 public:
     explicit PipeGuard(const char *command, const char *mode = "r")
-        : pipe_(command ? IONCLAW_POPEN(command, mode) : nullptr)
+        : pipe(command ? IONCLAW_POPEN(command, mode) : nullptr)
     {
     }
 
     ~PipeGuard()
     {
-        if (pipe_)
+        if (pipe)
         {
-            IONCLAW_PCLOSE(pipe_);
+            IONCLAW_PCLOSE(pipe);
         }
     }
 
     PipeGuard(const PipeGuard &) = delete;
     PipeGuard &operator=(const PipeGuard &) = delete;
 
-    FILE *get() const { return pipe_; }
-    explicit operator bool() const { return pipe_ != nullptr; }
+    FILE *get() const { return pipe; }
+    explicit operator bool() const { return pipe != nullptr; }
 
-    // release ownership and return the exit code from pclose
     int close()
     {
-        if (!pipe_)
+        if (!pipe)
         {
             return -1;
         }
 
-        auto result = IONCLAW_PCLOSE(pipe_);
-        pipe_ = nullptr;
+        auto result = IONCLAW_PCLOSE(pipe);
+        pipe = nullptr;
         return result;
     }
 
 private:
-    FILE *pipe_;
+    FILE *pipe;
 };
 
 } // namespace util

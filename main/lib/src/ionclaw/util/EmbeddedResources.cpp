@@ -2,6 +2,8 @@
 
 #include <filesystem>
 #include <fstream>
+#include <functional>
+#include <istream>
 #include <sstream>
 
 #include "spdlog/spdlog.h"
@@ -30,6 +32,52 @@ std::atomic<bool> EmbeddedResources::webLoaded{false};
 std::unordered_map<std::string, std::string> EmbeddedResources::skillFiles;
 std::once_flag EmbeddedResources::skillsLoadFlag;
 std::atomic<bool> EmbeddedResources::skillsLoaded{false};
+
+#ifdef IONCLAW_EMBEDDED_RESOURCES
+
+std::string EmbeddedResources::normalizeZipEntry(const std::string &raw)
+{
+    // directory entries carry no content
+    if (raw.empty() || raw.back() == '/')
+    {
+        return "";
+    }
+
+    // strip the leading "./" that the cmake tar step prepends
+    if (raw.size() > 2 && raw[0] == '.' && raw[1] == '/')
+    {
+        return raw.substr(2);
+    }
+
+    return raw;
+}
+
+void EmbeddedResources::forEachZipFile(const unsigned char *data, size_t size, const std::function<void(const std::string &name, std::istream &content)> &handler)
+{
+    std::string zipData(reinterpret_cast<const char *>(data), size);
+    std::istringstream zipStream(zipData);
+
+    Poco::Zip::ZipArchive archive(zipStream);
+
+    for (auto it = archive.headerBegin(); it != archive.headerEnd(); ++it)
+    {
+        auto name = normalizeZipEntry(it->first);
+
+        if (name.empty())
+        {
+            continue;
+        }
+
+        // each entry is read from the start of the shared stream using its own header
+        zipStream.clear();
+        zipStream.seekg(0);
+
+        Poco::Zip::ZipInputStream zis(zipStream, it->second);
+        handler(name, zis);
+    }
+}
+
+#endif
 
 bool EmbeddedResources::hasWebResources()
 {
@@ -68,39 +116,13 @@ void EmbeddedResources::loadWebResourcesImpl()
 #ifdef IONCLAW_EMBEDDED_RESOURCES
     try
     {
-        auto data = ionclaw_embedded_web::getData();
-        auto size = ionclaw_embedded_web::getSize();
-
-        std::string zipData(reinterpret_cast<const char *>(data), size);
-        std::istringstream zipStream(zipData);
-
-        Poco::Zip::ZipArchive archive(zipStream);
-
-        for (auto it = archive.headerBegin(); it != archive.headerEnd(); ++it)
-        {
-            auto entryName = it->first;
-
-            // skip directory entries
-            if (entryName.empty() || entryName.back() == '/')
-            {
-                continue;
-            }
-
-            // strip leading "./" if present (cmake tar adds it)
-            if (entryName.size() > 2 && entryName[0] == '.' && entryName[1] == '/')
-            {
-                entryName = entryName.substr(2);
-            }
-
-            zipStream.clear();
-            zipStream.seekg(0);
-
-            Poco::Zip::ZipInputStream zis(zipStream, it->second);
-            std::ostringstream content;
-            Poco::StreamCopier::copyStream(zis, content);
-
-            webFiles[entryName] = content.str();
-        }
+        // clang-format off
+        forEachZipFile(ionclaw_embedded_web::getData(), ionclaw_embedded_web::getSize(), [](const std::string &name, std::istream &content) {
+            std::ostringstream out;
+            Poco::StreamCopier::copyStream(content, out);
+            webFiles[name] = out.str();
+        });
+        // clang-format on
 
         webLoaded.store(true, std::memory_order_release);
         spdlog::info("[EmbeddedResources] Loaded {} web files from embedded resources", webFiles.size());
@@ -134,72 +156,34 @@ bool EmbeddedResources::extractTemplate(const std::string &targetDir)
 #ifdef IONCLAW_EMBEDDED_RESOURCES
     try
     {
-        auto data = ionclaw_embedded_template::getData();
-        auto size = ionclaw_embedded_template::getSize();
-
-        std::string zipData(reinterpret_cast<const char *>(data), size);
-        std::istringstream zipStream(zipData);
-
-        Poco::Zip::ZipArchive archive(zipStream);
         int extracted = 0;
 
-        for (auto it = archive.headerBegin(); it != archive.headerEnd(); ++it)
-        {
-            auto entryName = it->first;
+        // clang-format off
+        forEachZipFile(ionclaw_embedded_template::getData(), ionclaw_embedded_template::getSize(), [&](const std::string &name, std::istream &content) {
+            auto outputPath = fs::path(targetDir) / name;
 
-            // skip directory entries
-            if (entryName.empty() || entryName.back() == '/')
-            {
-                continue;
-            }
-
-            // strip leading "./" if present
-            if (entryName.size() > 2 && entryName[0] == '.' && entryName[1] == '/')
-            {
-                entryName = entryName.substr(2);
-            }
-
-            auto outputPath = fs::path(targetDir) / entryName;
-
-            // skip existing files
+            // never overwrite a file the user may have edited
             if (fs::exists(outputPath))
             {
-                spdlog::debug("[EmbeddedResources] Skipping existing: {}", entryName);
-                continue;
+                spdlog::debug("[EmbeddedResources] Skipping existing: {}", name);
+                return;
             }
 
-            // create parent directories
             std::error_code ec;
             fs::create_directories(outputPath.parent_path(), ec);
 
-            // extract
-            zipStream.clear();
-            zipStream.seekg(0);
-
-            Poco::Zip::ZipInputStream zis(zipStream, it->second);
-
             std::ofstream outFile(outputPath.string(), std::ios::binary);
 
-            if (outFile.is_open())
+            if (!outFile.is_open())
             {
-                char buffer[8192];
-
-                while (zis.good())
-                {
-                    zis.read(buffer, sizeof(buffer));
-                    auto bytesRead = zis.gcount();
-
-                    if (bytesRead > 0)
-                    {
-                        outFile.write(buffer, bytesRead);
-                    }
-                }
-
-                outFile.close();
-                extracted++;
-                spdlog::debug("[EmbeddedResources] Extracted: {}", entryName);
+                return;
             }
-        }
+
+            Poco::StreamCopier::copyStream(content, outFile);
+            extracted++;
+            spdlog::debug("[EmbeddedResources] Extracted: {}", name);
+        });
+        // clang-format on
 
         spdlog::info("[EmbeddedResources] Extracted {} template files to {}", extracted, targetDir);
         return true;
@@ -224,55 +208,21 @@ void EmbeddedResources::loadSkillsImpl()
 #ifdef IONCLAW_EMBEDDED_RESOURCES
     try
     {
-        auto data = ionclaw_embedded_skills::getData();
-        auto size = ionclaw_embedded_skills::getSize();
+        // skills zip has flat paths: <skill-name>/SKILL.md
+        // clang-format off
+        forEachZipFile(ionclaw_embedded_skills::getData(), ionclaw_embedded_skills::getSize(), [](const std::string &name, std::istream &content) {
+            auto slashPos = name.find('/');
 
-        std::string zipData(reinterpret_cast<const char *>(data), size);
-        std::istringstream zipStream(zipData);
-
-        Poco::Zip::ZipArchive archive(zipStream);
-
-        // skills ZIP has flat paths: <skill-name>/SKILL.md
-        for (auto it = archive.headerBegin(); it != archive.headerEnd(); ++it)
-        {
-            auto entryName = it->first;
-
-            if (entryName.empty() || entryName.back() == '/')
+            if (slashPos == std::string::npos || name.substr(slashPos + 1) != "SKILL.md")
             {
-                continue;
+                return;
             }
 
-            // strip leading "./"
-            if (entryName.size() > 2 && entryName[0] == '.' && entryName[1] == '/')
-            {
-                entryName = entryName.substr(2);
-            }
-
-            // match <name>/SKILL.md
-            auto slashPos = entryName.find('/');
-
-            if (slashPos == std::string::npos)
-            {
-                continue;
-            }
-
-            auto skillName = entryName.substr(0, slashPos);
-            auto filename = entryName.substr(slashPos + 1);
-
-            if (filename != "SKILL.md")
-            {
-                continue;
-            }
-
-            zipStream.clear();
-            zipStream.seekg(0);
-
-            Poco::Zip::ZipInputStream zis(zipStream, it->second);
-            std::ostringstream content;
-            Poco::StreamCopier::copyStream(zis, content);
-
-            skillFiles[skillName] = content.str();
-        }
+            std::ostringstream out;
+            Poco::StreamCopier::copyStream(content, out);
+            skillFiles[name.substr(0, slashPos)] = out.str();
+        });
+        // clang-format on
 
         skillsLoaded.store(true, std::memory_order_release);
         spdlog::info("[EmbeddedResources] Loaded {} built-in skills", skillFiles.size());

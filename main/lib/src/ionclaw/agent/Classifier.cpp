@@ -17,10 +17,7 @@ Classifier::Classifier(std::shared_ptr<ionclaw::provider::LlmProvider> provider,
 {
 }
 
-std::string Classifier::classify(
-    const std::string &message,
-    const std::string &sessionKey,
-    const std::vector<ionclaw::session::SessionMessage> &history) const
+std::string Classifier::classify(const std::string &message, const std::string &sessionKey, const std::vector<ionclaw::session::SessionMessage> &history) const
 {
     auto &agents = config.agents;
 

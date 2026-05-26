@@ -20,11 +20,9 @@ public:
     ToolSchema schema() const override;
 
 private:
-    // constants
     static constexpr size_t MAX_FEED_SIZE = 2 * 1024 * 1024; // 2MB
     static constexpr int MAX_SUMMARY_CHARS = 500;
 
-    // helpers
     static std::string stripHtmlTags(const std::string &html);
     static std::string getElementText(Poco::XML::Element *parent, const std::string &tagName);
 };

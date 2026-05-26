@@ -19,8 +19,6 @@ namespace session
 
 namespace fs = std::filesystem;
 
-// session message serialization
-
 nlohmann::json SessionMessage::toJson() const
 {
     nlohmann::json j;
@@ -96,8 +94,6 @@ SessionMessage SessionMessage::fromJson(const nlohmann::json &j)
     return msg;
 }
 
-// session manager implementation
-
 SessionManager::SessionManager(const std::string &sessionsDir, int64_t maxDiskBytes, double highWaterRatio)
     : sessionsDir(sessionsDir)
     , sweeper(sessionsDir, maxDiskBytes, highWaterRatio)
@@ -107,7 +103,7 @@ SessionManager::SessionManager(const std::string &sessionsDir, int64_t maxDiskBy
 
     if (ec)
     {
-        spdlog::error("Failed to create sessions directory {}: {}", sessionsDir, ec.message());
+        spdlog::error("[SessionManager] Failed to create sessions directory {}: {}", sessionsDir, ec.message());
     }
 }
 
@@ -127,7 +123,6 @@ std::shared_ptr<std::mutex> SessionManager::getSessionMutex(const std::string &k
     return it->second;
 }
 
-// internal: returns reference under caller-held locks
 Session &SessionManager::getOrCreateLocked(const std::string &sessionKey)
 {
     auto it = cache.find(sessionKey);
@@ -194,7 +189,7 @@ Session SessionManager::getOrCreate(const std::string &sessionKey)
     if (maxCreationsPerMinute.load() > 0 && !checkRateLimitLocked())
     {
         spdlog::warn("[SessionManager] Rate limit exceeded for session creation: {}", sessionKey);
-        throw std::runtime_error("session creation rate limit exceeded");
+        throw std::runtime_error("[SessionManager] session creation rate limit exceeded");
     }
 
     auto &session = getOrCreateLocked(sessionKey);
@@ -233,7 +228,7 @@ void SessionManager::ensureSession(const std::string &sessionKey)
     if (maxCreationsPerMinute.load() > 0 && !checkRateLimitLocked())
     {
         spdlog::warn("[SessionManager] Rate limit exceeded for session creation: {}", sessionKey);
-        throw std::runtime_error("session creation rate limit exceeded");
+        throw std::runtime_error("[SessionManager] session creation rate limit exceeded");
     }
 
     getOrCreateLocked(sessionKey);
@@ -252,17 +247,13 @@ bool SessionManager::addMessage(const std::string &sessionKey, const SessionMess
 
     if (cappedMessage.content.size() > static_cast<size_t>(MAX_MESSAGE_PERSIST_CHARS))
     {
-        cappedMessage.content = ionclaw::util::StringHelper::utf8SafeTruncate(
-                                    cappedMessage.content, MAX_MESSAGE_PERSIST_CHARS) +
-                                "\n[content truncated for disk persistence]";
-        spdlog::debug("[SessionManager] Capped message content from {}→{} chars",
-                      message.content.size(), MAX_MESSAGE_PERSIST_CHARS);
+        cappedMessage.content = ionclaw::util::StringHelper::utf8SafeTruncate(cappedMessage.content, MAX_MESSAGE_PERSIST_CHARS) + "\n[content truncated for disk persistence]";
+        spdlog::debug("[SessionManager] Capped message content from {}→{} chars", message.content.size(), MAX_MESSAGE_PERSIST_CHARS);
     }
 
     // hold globalMutex while accessing session to prevent use-after-free from concurrent eviction
     std::string filePath;
     bool fileExists;
-    std::string sessionKey_;
     std::string createdAt;
     std::string updatedAt;
     std::string displayName;
@@ -319,7 +310,6 @@ bool SessionManager::addMessage(const std::string &sessionKey, const SessionMess
 
         filePath = sessionFilePath(sessionKey);
         fileExists = fs::exists(filePath);
-        sessionKey_ = session.key;
         createdAt = session.createdAt;
         updatedAt = session.updatedAt;
         displayName = session.displayName;
@@ -339,7 +329,7 @@ bool SessionManager::addMessage(const std::string &sessionKey, const SessionMess
     {
         nlohmann::json meta;
         meta["_type"] = "metadata";
-        meta["key"] = sessionKey_;
+        meta["key"] = sessionKey;
         meta["created_at"] = createdAt;
         meta["updated_at"] = updatedAt;
         if (!displayName.empty())
@@ -498,13 +488,14 @@ std::vector<SessionInfo> SessionManager::listSessions()
         }
         catch (const nlohmann::json::exception &e)
         {
-            spdlog::warn("Failed to parse session metadata from {}: {}", entry.path().string(), e.what());
+            spdlog::warn("[SessionManager] Failed to parse session metadata from {}: {}", entry.path().string(), e.what());
         }
     }
 
     // most recent first
-    std::sort(result.begin(), result.end(), [](const SessionInfo &a, const SessionInfo &b)
-              { return a.updatedAt > b.updatedAt; });
+    // clang-format off
+    std::sort(result.begin(), result.end(), [](const SessionInfo &a, const SessionInfo &b) { return a.updatedAt > b.updatedAt; });
+    // clang-format on
 
     return result;
 }
@@ -528,7 +519,7 @@ void SessionManager::deleteSession(const std::string &sessionKey)
 
         if (ec)
         {
-            spdlog::error("Failed to delete session file {}: {}", filePath, ec.message());
+            spdlog::error("[SessionManager] Failed to delete session file {}: {}", filePath, ec.message());
         }
     }
 }
@@ -595,12 +586,11 @@ void SessionManager::clearSession(const std::string &sessionKey)
         }
         else
         {
-            spdlog::error("Failed to open session file for clear: {}", filePath);
+            spdlog::error("[SessionManager] Failed to open session file for clear: {}", filePath);
         }
     }
 }
 
-// write session data to its JSONL file (caller must ensure thread-safety)
 void SessionManager::writeSessionFile(const Session &session)
 {
     auto filePath = sessionFilePath(session.key);
@@ -609,7 +599,7 @@ void SessionManager::writeSessionFile(const Session &session)
 
     if (!ofs.is_open())
     {
-        spdlog::error("Failed to open session file for save: {}", filePath);
+        spdlog::error("[SessionManager] Failed to open session file for save: {}", filePath);
         return;
     }
 
@@ -677,8 +667,7 @@ void SessionManager::save(const std::string &sessionKey)
 
 void SessionManager::setAbortCutoffAll()
 {
-    // collect session keys under globalMutex, then process each under its per-session mutex
-    // to prevent concurrent addMessage from appending between snapshot and write
+    // collect keys under globalMutex, then process each under its per-session mutex to block concurrent appends during the snapshot
     std::vector<std::string> keys;
 
     {
@@ -949,7 +938,7 @@ void SessionManager::loadFromDisk(const std::string &sessionKey)
 
     if (!ifs.is_open())
     {
-        spdlog::error("Failed to open session file: {}", filePath);
+        spdlog::error("[SessionManager] Failed to open session file: {}", filePath);
         return;
     }
 
@@ -1031,8 +1020,7 @@ void SessionManager::loadFromDisk(const std::string &sessionKey)
             }
         }
 
-        spdlog::warn("[SessionManager] Repaired session {}: dropped {} corrupt lines, backup at {}.bak",
-                     sessionKey, droppedLines, filePath);
+        spdlog::warn("[SessionManager] Repaired session {}: dropped {} corrupt lines, backup at {}.bak", sessionKey, droppedLines, filePath);
     }
 
     if (session.createdAt.empty())

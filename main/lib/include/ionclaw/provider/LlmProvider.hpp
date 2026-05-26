@@ -25,8 +25,8 @@ struct Message
     std::vector<ToolCall> toolCalls;
     std::string toolCallId;
     std::string name;
-    nlohmann::json contentBlocks; // array of content blocks for multimodal (text + images)
-    std::string reasoningContent; // extended thinking content
+    nlohmann::json contentBlocks;
+    std::string reasoningContent;
 };
 
 struct ChatCompletionRequest
@@ -37,7 +37,7 @@ struct ChatCompletionRequest
     int maxTokens = 4096;
     std::vector<nlohmann::json> tools;
     bool stream = false;
-    nlohmann::json modelParams; // provider-specific params from config
+    nlohmann::json modelParams;
 };
 
 struct StreamChunk

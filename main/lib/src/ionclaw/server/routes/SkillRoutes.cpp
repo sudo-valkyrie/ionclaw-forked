@@ -30,7 +30,6 @@ agent::SkillsLoader Routes::createSkillsLoader(const config::Config &cfg, const 
     return agent::SkillsLoader(cfg.projectPath, workspacePath);
 }
 
-// find the workspace that contains a skill by searching all agent workspaces
 std::string Routes::resolveWorkspaceForSkill(const std::string &skillName) const
 {
     // try project-level first (no workspace)

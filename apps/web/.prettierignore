@@ -1,0 +1,5 @@
+node_modules
+dist
+public/sw.js
+*.min.js
+*.min.css

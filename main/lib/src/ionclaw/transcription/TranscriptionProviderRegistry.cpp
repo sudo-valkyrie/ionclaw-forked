@@ -21,20 +21,19 @@ TranscriptionProviderRegistry &TranscriptionProviderRegistry::instance()
     return inst;
 }
 
-void TranscriptionProviderRegistry::registerProvider(const std::string &name,
-                                                     std::unique_ptr<TranscriptionProvider> provider)
+void TranscriptionProviderRegistry::registerProvider(const std::string &name, std::unique_ptr<TranscriptionProvider> provider)
 {
     if (provider)
     {
-        providers_[name] = std::move(provider);
+        providers[name] = std::move(provider);
     }
 }
 
 TranscriptionProvider *TranscriptionProviderRegistry::get(const std::string &name) const
 {
-    auto it = providers_.find(name);
+    auto it = providers.find(name);
 
-    if (it != providers_.end())
+    if (it != providers.end())
     {
         return it->second.get();
     }
@@ -45,9 +44,9 @@ TranscriptionProvider *TranscriptionProviderRegistry::get(const std::string &nam
 std::vector<std::string> TranscriptionProviderRegistry::providerNames() const
 {
     std::vector<std::string> names;
-    names.reserve(providers_.size());
+    names.reserve(providers.size());
 
-    for (const auto &p : providers_)
+    for (const auto &p : providers)
     {
         names.push_back(p.first);
     }

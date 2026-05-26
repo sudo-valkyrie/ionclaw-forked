@@ -17,9 +17,7 @@ const emit = defineEmits(['go-to-session'])
     </div>
     <div class="column-cards">
       <TaskCard v-for="task in tasks" :key="task.id" :task="task" @go-to-session="emit('go-to-session', $event)" />
-      <div v-if="tasks.length === 0" class="empty-column">
-        No tasks
-      </div>
+      <div v-if="tasks.length === 0" class="empty-column">No tasks</div>
     </div>
   </div>
 </template>

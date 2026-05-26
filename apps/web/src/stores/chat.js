@@ -92,7 +92,7 @@ export const useChatStore = defineStore('chat', () => {
     if (state) {
       liveMessage.value = {
         role: 'assistant',
-        content: state.content.map(b => ({ ...b })),
+        content: state.content.map((b) => ({ ...b })),
         agent_name: state.agent_name,
       }
       toolRunning.value = state.toolRunning
@@ -178,18 +178,14 @@ export const useChatStore = defineStore('chat', () => {
 
     // deduplicate: the same task_id may arrive more than once
     if (data.task_id) {
-      const exists = messages.value.some(
-        (m) => m.role === 'assistant' && m.task_id === data.task_id
-      )
+      const exists = messages.value.some((m) => m.role === 'assistant' && m.task_id === data.task_id)
       if (exists) return
     }
 
     const content = data.content
 
     // check if final response has real content
-    const hasContent = content.some(
-      (b) => (b.type === 'text' && b.text) || b.type === 'tool_use'
-    )
+    const hasContent = content.some((b) => (b.type === 'text' && b.text) || b.type === 'tool_use')
 
     if (hasContent) {
       messages.value.push({
@@ -202,9 +198,7 @@ export const useChatStore = defineStore('chat', () => {
     } else if (liveState && liveState.content.length > 0) {
       // empty final response but we have accumulated streaming content (tool uses, text)
       // persist the live state so the user sees what the agent did
-      const liveHasContent = liveState.content.some(
-        (b) => (b.type === 'text' && b.text) || b.type === 'tool_use'
-      )
+      const liveHasContent = liveState.content.some((b) => (b.type === 'text' && b.text) || b.type === 'tool_use')
       if (liveHasContent) {
         messages.value.push({
           role: 'assistant',
@@ -229,9 +223,7 @@ export const useChatStore = defineStore('chat', () => {
     for (let i = messages.value.length - 1; i >= 0; i--) {
       if (messages.value[i].role === 'user') {
         const msg = messages.value[i]
-        msg.content = msg.content
-          ? `${msg.content}\n\n${data.content}`
-          : data.content
+        msg.content = msg.content ? `${msg.content}\n\n${data.content}` : data.content
         break
       }
     }
@@ -337,7 +329,7 @@ export const useChatStore = defineStore('chat', () => {
       if (cached && cached.content.length > 0) {
         liveMessage.value = {
           role: 'assistant',
-          content: cached.content.map(b => ({ ...b })),
+          content: cached.content.map((b) => ({ ...b })),
           agent_name: cached.agent_name,
         }
         toolRunning.value = cached.toolRunning

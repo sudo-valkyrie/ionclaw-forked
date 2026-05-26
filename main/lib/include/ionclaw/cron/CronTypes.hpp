@@ -10,7 +10,7 @@ namespace cron
 
 struct CronSchedule
 {
-    std::string kind = "every"; // "at", "every", "cron"
+    std::string kind = "every";
     int64_t atMs = 0;
     int64_t everyMs = 0;
     std::string expr;

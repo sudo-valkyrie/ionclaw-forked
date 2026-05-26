@@ -17,49 +17,35 @@ namespace ionclaw
 namespace channel
 {
 
-// telegram api base url
 const char *TelegramRunner::TELEGRAM_API = "https://api.telegram.org";
 
-// telegram api get request
 std::string TelegramRunner::telegramGet(const std::string &token, const std::string &path, const std::string &proxy, int timeoutSeconds)
 {
     std::string url = std::string(TELEGRAM_API) + "/bot" + token + path;
-    auto resp = ionclaw::util::HttpClient::request(
-        "GET", url, {}, "", timeoutSeconds, true, nullptr, proxy);
+    auto resp = ionclaw::util::HttpClient::request("GET", url, {}, "", timeoutSeconds, true, nullptr, proxy);
 
     if (resp.statusCode < 200 || resp.statusCode >= 300)
     {
-        throw std::runtime_error("Telegram API GET " + path + " failed: " + std::to_string(resp.statusCode) + " " + resp.body);
+        throw std::runtime_error("[TelegramRunner] Telegram API GET " + path + " failed: " + std::to_string(resp.statusCode) + " " + resp.body);
     }
 
     return resp.body;
 }
 
-// telegram api post request
 std::string TelegramRunner::telegramPost(const std::string &token, const std::string &path, const std::string &body, const std::string &proxy)
 {
     std::string url = std::string(TELEGRAM_API) + "/bot" + token + path;
-    auto resp = ionclaw::util::HttpClient::request(
-        "POST", url, {{"Content-Type", "application/json"}}, body, 30, true, nullptr, proxy);
+    auto resp = ionclaw::util::HttpClient::request("POST", url, {{"Content-Type", "application/json"}}, body, 30, true, nullptr, proxy);
 
     if (resp.statusCode < 200 || resp.statusCode >= 300)
     {
-        throw std::runtime_error("Telegram API POST " + path + " failed: " + std::to_string(resp.statusCode) + " " + resp.body);
+        throw std::runtime_error("[TelegramRunner] Telegram API POST " + path + " failed: " + std::to_string(resp.statusCode) + " " + resp.body);
     }
 
     return resp.body;
 }
 
-TelegramRunner::TelegramRunner(
-    std::shared_ptr<ionclaw::bus::MessageBus> bus,
-    std::shared_ptr<ionclaw::session::SessionManager> sessionManager,
-    std::shared_ptr<ionclaw::task::TaskManager> taskManager,
-    std::shared_ptr<ionclaw::bus::EventDispatcher> dispatcher,
-    std::string token,
-    std::vector<std::string> allowedUsers,
-    std::string proxy,
-    bool replyToMessage,
-    std::string publicDir)
+TelegramRunner::TelegramRunner(std::shared_ptr<ionclaw::bus::MessageBus> bus, std::shared_ptr<ionclaw::session::SessionManager> sessionManager, std::shared_ptr<ionclaw::task::TaskManager> taskManager, std::shared_ptr<ionclaw::bus::EventDispatcher> dispatcher, std::string token, std::vector<std::string> allowedUsers, std::string proxy, bool replyToMessage, std::string publicDir)
     : bus(std::move(bus))
     , sessionManager(std::move(sessionManager))
     , taskManager(std::move(taskManager))
@@ -79,60 +65,64 @@ TelegramRunner::~TelegramRunner()
 
 void TelegramRunner::startTypingTicker(const std::string &chatId)
 {
-    std::lock_guard<std::mutex> lock(typingMutex_);
+    std::lock_guard<std::mutex> lock(typingMutex);
 
     // already ticking for this chat
-    if (typingActive_.count(chatId) && typingActive_[chatId])
+    if (typingActive.count(chatId) && typingActive[chatId])
     {
         return;
     }
 
-    typingActive_[chatId] = true;
+    typingActive[chatId] = true;
 
     // clean up previous thread if joinable
-    auto it = typingTickers_.find(chatId);
-    if (it != typingTickers_.end() && it->second.joinable())
+    auto it = typingTickers.find(chatId);
+    if (it != typingTickers.end() && it->second.joinable())
     {
         it->second.join();
-        typingTickers_.erase(it);
+        typingTickers.erase(it);
     }
 
-    typingTickers_.emplace(chatId, std::thread([this, chatId]()
-                                               {
+    // clang-format off
+    typingTickers.emplace(chatId, std::thread([this, chatId]() {
         while (running.load())
         {
             sendTypingAction(chatId);
 
-            std::unique_lock<std::mutex> lk(typingMutex_);
-            if (typingCv_.wait_for(lk, std::chrono::seconds(TYPING_INTERVAL_SEC), [this, &chatId]()
-            {
-                // entry removed or set to false means stop
-                auto it = typingActive_.find(chatId);
-                return !running.load() || it == typingActive_.end() || !it->second;
-            }))
+            std::unique_lock<std::mutex> lk(typingMutex);
+
+            bool stop = typingCv.wait_for(lk, std::chrono::seconds(TYPING_INTERVAL_SEC), [this, &chatId]() {
+                // a removed or false entry means stop
+                auto it = typingActive.find(chatId);
+                return !running.load() || it == typingActive.end() || !it->second;
+            });
+
+            if (stop)
             {
                 break;
             }
-        } }));
+        }
+    }));
+    // clang-format on
 }
 
 void TelegramRunner::stopTypingTicker(const std::string &chatId)
 {
     std::thread t;
     {
-        std::lock_guard<std::mutex> lock(typingMutex_);
-        typingActive_[chatId] = false;
+        std::lock_guard<std::mutex> lock(typingMutex);
+        typingActive[chatId] = false;
     }
-    typingCv_.notify_all();
+    typingCv.notify_all();
 
     // join outside the lock to avoid deadlock
     {
-        std::lock_guard<std::mutex> lock(typingMutex_);
-        auto it = typingTickers_.find(chatId);
-        if (it != typingTickers_.end() && it->second.joinable())
+        std::lock_guard<std::mutex> lock(typingMutex);
+        auto it = typingTickers.find(chatId);
+        if (it != typingTickers.end() && it->second.joinable())
         {
             t = std::move(it->second);
-            typingTickers_.erase(it);
+            typingTickers.erase(it);
         }
     }
     if (t.joinable())
@@ -144,27 +134,27 @@ void TelegramRunner::stopTypingTicker(const std::string &chatId)
 void TelegramRunner::stopAllTypingTickers()
 {
     {
-        std::lock_guard<std::mutex> lock(typingMutex_);
-        for (auto &[chatId, active] : typingActive_)
+        std::lock_guard<std::mutex> lock(typingMutex);
+        for (auto &[chatId, active] : typingActive)
         {
             active = false;
         }
     }
-    typingCv_.notify_all();
+    typingCv.notify_all();
 
     // collect and join all threads
     std::vector<std::thread> threads;
     {
-        std::lock_guard<std::mutex> lock(typingMutex_);
-        for (auto &[chatId, t] : typingTickers_)
+        std::lock_guard<std::mutex> lock(typingMutex);
+        for (auto &[chatId, t] : typingTickers)
         {
             if (t.joinable())
             {
                 threads.push_back(std::move(t));
             }
         }
-        typingTickers_.clear();
-        typingActive_.clear();
+        typingTickers.clear();
+        typingActive.clear();
     }
     for (auto &t : threads)
     {
@@ -174,20 +164,21 @@ void TelegramRunner::stopAllTypingTickers()
 
 void TelegramRunner::registerTypingHandler()
 {
-    dispatcher->addNamedHandler("telegram-typing", [this](const std::string &eventType, const nlohmann::json &data)
-                                {
+    // clang-format off
+    dispatcher->addNamedHandler("telegram-typing", [this](const std::string &eventType, const nlohmann::json &data) {
         if (!running.load() || !data.is_object())
         {
             return;
         }
 
         auto chatId = data.value("chat_id", "");
+
         if (chatId.empty() || chatId.find("telegram:") != 0)
         {
             return;
         }
 
-        // extract numeric chat id after "telegram:" prefix
+        // extract the numeric chat id after the "telegram:" prefix
         auto numericId = chatId.substr(9);
 
         if (eventType == "chat:typing")
@@ -197,7 +188,9 @@ void TelegramRunner::registerTypingHandler()
         else if (eventType == "chat:message")
         {
             stopTypingTicker(numericId);
-        } });
+        }
+    });
+    // clang-format on
 }
 
 void TelegramRunner::unregisterTypingHandler()
@@ -216,11 +209,11 @@ void TelegramRunner::start()
     try
     {
         telegramPost(token, "/deleteWebhook", R"({"drop_pending_updates":false})", proxy);
-        spdlog::info("[Telegram] Webhook cleared");
+        spdlog::info("[TelegramRunner] Webhook cleared");
     }
     catch (const std::exception &e)
     {
-        spdlog::warn("[Telegram] deleteWebhook failed: {}", e.what());
+        spdlog::warn("[TelegramRunner] deleteWebhook failed: {}", e.what());
     }
 
     // validate bot token on startup
@@ -232,18 +225,18 @@ void TelegramRunner::start()
         {
             auto botName = j["result"].value("username", "unknown");
             auto botId = j["result"].value("id", int64_t(0));
-            spdlog::info("[Telegram] Bot authenticated: @{} (id={})", botName, botId);
+            spdlog::info("[TelegramRunner] Bot authenticated: @{} (id={})", botName, botId);
         }
     }
     catch (const std::exception &e)
     {
-        spdlog::error("[Telegram] Bot token validation failed: {}", e.what());
+        spdlog::error("[TelegramRunner] Bot token validation failed: {}", e.what());
     }
 
     registerTypingHandler();
     pollThread = std::thread(&TelegramRunner::pollLoop, this);
     outboundThread = std::thread(&TelegramRunner::outboundLoop, this);
-    spdlog::info("[Telegram] Runner started");
+    spdlog::info("[TelegramRunner] Runner started");
 }
 
 void TelegramRunner::stop()
@@ -262,7 +255,7 @@ void TelegramRunner::stop()
     {
         outboundThread.join();
     }
-    spdlog::info("[Telegram] Runner stopped");
+    spdlog::info("[TelegramRunner] Runner stopped");
 }
 
 bool TelegramRunner::isAllowed(const std::string &userId, const std::string &username) const
@@ -281,7 +274,6 @@ bool TelegramRunner::isAllowed(const std::string &userId, const std::string &use
     return false;
 }
 
-// date-organized path: YYYY/MM/DD
 std::string TelegramRunner::mediaDatePath() const
 {
     auto now = std::chrono::system_clock::now();
@@ -297,7 +289,6 @@ std::string TelegramRunner::mediaDatePath() const
     return buf;
 }
 
-// download a telegram file by file_id, save to public/media/, return relative path
 std::string TelegramRunner::downloadTelegramFile(const std::string &fileId)
 {
     // step 1: call getFile to get the file_path
@@ -306,12 +297,12 @@ std::string TelegramRunner::downloadTelegramFile(const std::string &fileId)
 
     if (j.is_discarded())
     {
-        throw std::runtime_error("getFile returned invalid JSON for file_id: " + fileId);
+        throw std::runtime_error("[TelegramRunner] getFile returned invalid JSON for file_id: " + fileId);
     }
 
     if (!j.value("ok", false) || !j.contains("result") || !j["result"].contains("file_path"))
     {
-        throw std::runtime_error("getFile failed for file_id: " + fileId);
+        throw std::runtime_error("[TelegramRunner] getFile failed for file_id: " + fileId);
     }
 
     std::string filePath = j["result"]["file_path"].get<std::string>();
@@ -320,17 +311,16 @@ std::string TelegramRunner::downloadTelegramFile(const std::string &fileId)
     // telegram bot api limit: 20MB for downloads
     if (fileSize > 20 * 1024 * 1024)
     {
-        throw std::runtime_error("File too large for Telegram Bot API download: " + std::to_string(fileSize) + " bytes");
+        throw std::runtime_error("[TelegramRunner] File too large for Telegram Bot API download: " + std::to_string(fileSize) + " bytes");
     }
 
     // step 2: download the file from telegram CDN
     std::string downloadUrl = std::string(TELEGRAM_API) + "/file/bot" + token + "/" + filePath;
-    auto resp = ionclaw::util::HttpClient::request(
-        "GET", downloadUrl, {}, "", 60, true, nullptr, proxy);
+    auto resp = ionclaw::util::HttpClient::request("GET", downloadUrl, {}, "", 60, true, nullptr, proxy);
 
     if (resp.statusCode < 200 || resp.statusCode >= 300)
     {
-        throw std::runtime_error("File download failed: " + std::to_string(resp.statusCode));
+        throw std::runtime_error("[TelegramRunner] File download failed: " + std::to_string(resp.statusCode));
     }
 
     // step 3: save to public/media/YYYY/MM/DD/
@@ -341,7 +331,7 @@ std::string TelegramRunner::downloadTelegramFile(const std::string &fileId)
 
     if (ec)
     {
-        spdlog::error("[Telegram] Failed to create media dir: {}", ec.message());
+        spdlog::error("[TelegramRunner] Failed to create media dir: {}", ec.message());
         return "";
     }
 
@@ -359,13 +349,13 @@ std::string TelegramRunner::downloadTelegramFile(const std::string &fileId)
     std::ofstream out(fullPath, std::ios::binary);
     if (!out.is_open())
     {
-        throw std::runtime_error("Failed to write media file: " + fullPath);
+        throw std::runtime_error("[TelegramRunner] Failed to write media file: " + fullPath);
     }
     out.write(resp.body.data(), static_cast<std::streamsize>(resp.body.size()));
     out.flush();
     if (out.fail())
     {
-        throw std::runtime_error("Write failed (disk full or I/O error): " + fullPath);
+        throw std::runtime_error("[TelegramRunner] Write failed (disk full or I/O error): " + fullPath);
     }
     out.close();
 
@@ -384,15 +374,11 @@ void TelegramRunner::sendTypingAction(const std::string &chatId)
     }
     catch (const std::exception &e)
     {
-        spdlog::debug("[Telegram] sendChatAction failed: {}", e.what());
+        spdlog::debug("[TelegramRunner] sendChatAction failed: {}", e.what());
     }
 }
 
-namespace
-{
-
-// escape a string for Telegram HTML
-std::string escapeHtml(const std::string &s)
+std::string TelegramRunner::escapeHtml(const std::string &s)
 {
     std::string out;
     out.reserve(s.size());
@@ -416,19 +402,18 @@ std::string escapeHtml(const std::string &s)
     return out;
 }
 
-// find closing marker starting from pos, returns npos if not found
-size_t findClosing(const std::string &s, size_t pos, const std::string &marker)
+size_t TelegramRunner::findClosing(const std::string &s, size_t pos, const std::string &marker)
 {
     auto found = s.find(marker, pos);
+
     // must not be empty content
     if (found != std::string::npos && found > pos)
     {
         return found;
     }
+
     return std::string::npos;
 }
-
-} // namespace
 
 std::string TelegramRunner::markdownToTelegramHtml(const std::string &md)
 {
@@ -613,7 +598,7 @@ void TelegramRunner::sendTextMessage(const std::string &chatId, const std::strin
     catch (const std::exception &firstErr)
     {
         std::string err = firstErr.what();
-        spdlog::error("[Telegram] sendMessage failed for chatId={}: {}", chatId, err);
+        spdlog::error("[TelegramRunner] sendMessage failed for chatId={}: {}", chatId, err);
 
         // chat not found = user never sent /start to the bot
         if (err.find("chat not found") != std::string::npos)
@@ -622,7 +607,7 @@ void TelegramRunner::sendTextMessage(const std::string &chatId, const std::strin
         }
 
         // fallback: send as plain text if HTML parsing fails
-        spdlog::info("[Telegram] Retrying as plain text");
+        spdlog::info("[TelegramRunner] Retrying as plain text");
         body.erase("parse_mode");
         body["text"] = text;
         try
@@ -631,7 +616,7 @@ void TelegramRunner::sendTextMessage(const std::string &chatId, const std::strin
         }
         catch (const std::exception &retryErr)
         {
-            spdlog::error("[Telegram] Plain text retry also failed: {}", retryErr.what());
+            spdlog::error("[TelegramRunner] Plain text retry also failed: {}", retryErr.what());
         }
     }
 }
@@ -716,11 +701,11 @@ void TelegramRunner::processUpdate(const nlohmann::json &update)
             {
                 auto path = downloadTelegramFile(largest["file_id"].get<std::string>());
                 mediaFiles.push_back(path);
-                spdlog::info("[Telegram] Downloaded photo: {}", path);
+                spdlog::info("[TelegramRunner] Downloaded photo: {}", path);
             }
             catch (const std::exception &e)
             {
-                spdlog::error("[Telegram] Photo download failed: {}", e.what());
+                spdlog::error("[TelegramRunner] Photo download failed: {}", e.what());
             }
         }
     }
@@ -732,11 +717,11 @@ void TelegramRunner::processUpdate(const nlohmann::json &update)
         {
             auto path = downloadTelegramFile(msg["voice"]["file_id"].get<std::string>());
             mediaFiles.push_back(path);
-            spdlog::info("[Telegram] Downloaded voice: {}", path);
+            spdlog::info("[TelegramRunner] Downloaded voice: {}", path);
         }
         catch (const std::exception &e)
         {
-            spdlog::error("[Telegram] Voice download failed: {}", e.what());
+            spdlog::error("[TelegramRunner] Voice download failed: {}", e.what());
         }
     }
 
@@ -747,11 +732,11 @@ void TelegramRunner::processUpdate(const nlohmann::json &update)
         {
             auto path = downloadTelegramFile(msg["audio"]["file_id"].get<std::string>());
             mediaFiles.push_back(path);
-            spdlog::info("[Telegram] Downloaded audio: {}", path);
+            spdlog::info("[TelegramRunner] Downloaded audio: {}", path);
         }
         catch (const std::exception &e)
         {
-            spdlog::error("[Telegram] Audio download failed: {}", e.what());
+            spdlog::error("[TelegramRunner] Audio download failed: {}", e.what());
         }
     }
 
@@ -762,11 +747,11 @@ void TelegramRunner::processUpdate(const nlohmann::json &update)
         {
             auto path = downloadTelegramFile(msg["document"]["file_id"].get<std::string>());
             mediaFiles.push_back(path);
-            spdlog::info("[Telegram] Downloaded document: {}", path);
+            spdlog::info("[TelegramRunner] Downloaded document: {}", path);
         }
         catch (const std::exception &e)
         {
-            spdlog::error("[Telegram] Document download failed: {}", e.what());
+            spdlog::error("[TelegramRunner] Document download failed: {}", e.what());
         }
     }
 
@@ -785,7 +770,7 @@ void TelegramRunner::processUpdate(const nlohmann::json &update)
     std::string userIdStr = std::to_string(fromId);
     if (!isAllowed(userIdStr, username))
     {
-        spdlog::debug("[Telegram] Ignoring message from non-allowed user: {}", userIdStr);
+        spdlog::debug("[TelegramRunner] Ignoring message from non-allowed user: {}", userIdStr);
         return;
     }
 
@@ -794,7 +779,7 @@ void TelegramRunner::processUpdate(const nlohmann::json &update)
 
     if (!taskManager || !sessionManager || !dispatcher)
     {
-        spdlog::error("[Telegram] Required services not initialized");
+        spdlog::error("[TelegramRunner] Required services not initialized");
         return;
     }
 
@@ -869,7 +854,7 @@ void TelegramRunner::processUpdate(const nlohmann::json &update)
     }
     catch (const std::exception &e)
     {
-        spdlog::error("[Telegram] Failed to process message from chat {}: {}", chatIdStr, e.what());
+        spdlog::error("[TelegramRunner] Failed to process message from chat {}: {}", chatIdStr, e.what());
         // try to send error feedback to user via Telegram
         try
         {
@@ -877,7 +862,7 @@ void TelegramRunner::processUpdate(const nlohmann::json &update)
         }
         catch (...)
         {
-            spdlog::error("[Telegram] Failed to send error feedback to chat {}", chatIdStr);
+            spdlog::error("[TelegramRunner] Failed to send error feedback to chat {}", chatIdStr);
         }
     }
 }
@@ -912,11 +897,11 @@ void TelegramRunner::pollLoop()
 
                 if (msg.find("Timeout") != std::string::npos || msg.find("timeout") != std::string::npos)
                 {
-                    spdlog::debug("[Telegram] Poll timeout (normal)");
+                    spdlog::debug("[TelegramRunner] Poll timeout (normal)");
                 }
                 else
                 {
-                    spdlog::warn("[Telegram] Poll error: {}", msg);
+                    spdlog::warn("[TelegramRunner] Poll error: {}", msg);
                 }
             }
         }
@@ -937,7 +922,7 @@ void TelegramRunner::outboundLoop()
             if (outbound.channel != "telegram")
             {
                 // drop messages not targeted at this channel to avoid infinite re-publish loop
-                spdlog::debug("[Telegram] Dropping non-telegram outbound (channel={})", outbound.channel);
+                spdlog::debug("[TelegramRunner] Dropping non-telegram outbound (channel={})", outbound.channel);
                 continue;
             }
 
@@ -948,11 +933,11 @@ void TelegramRunner::outboundLoop()
                 chatId = chatId.substr(colon + 1);
             }
 
-            spdlog::debug("[Telegram] Sending outbound: chatId={}, contentLen={}", chatId, outbound.content.size());
+            spdlog::debug("[TelegramRunner] Sending outbound: chatId={}, contentLen={}", chatId, outbound.content.size());
 
             if (chatId.empty() || outbound.content.empty())
             {
-                spdlog::warn("[Telegram] Skipping empty outbound (chatId={}, contentLen={})", chatId, outbound.content.size());
+                spdlog::warn("[TelegramRunner] Skipping empty outbound (chatId={}, contentLen={})", chatId, outbound.content.size());
                 continue;
             }
 
@@ -966,11 +951,11 @@ void TelegramRunner::outboundLoop()
         }
         catch (const std::exception &e)
         {
-            spdlog::error("[Telegram] Outbound error: {}", e.what());
+            spdlog::error("[TelegramRunner] Outbound error: {}", e.what());
         }
         catch (...)
         {
-            spdlog::error("[Telegram] Outbound non-standard exception");
+            spdlog::error("[TelegramRunner] Outbound non-standard exception");
         }
     }
 }

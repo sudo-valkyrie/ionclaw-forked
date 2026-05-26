@@ -12,7 +12,6 @@ namespace ionclaw
 namespace util
 {
 
-// check if address is private/reserved (works for both IPv4 and IPv6)
 bool SsrfGuard::isPrivateIp(const Poco::Net::IPAddress &addr, bool allowLoopback)
 {
     if (addr.isLoopback())
@@ -61,7 +60,7 @@ void SsrfGuard::validateUrlImpl(const std::string &url, bool allowLoopback)
     }
     catch (const std::exception &)
     {
-        throw std::runtime_error("Invalid URL: " + url);
+        throw std::runtime_error("[SsrfGuard] Invalid URL: " + url);
     }
 
     // validate scheme
@@ -69,14 +68,14 @@ void SsrfGuard::validateUrlImpl(const std::string &url, bool allowLoopback)
 
     if (scheme != "http" && scheme != "https")
     {
-        throw std::runtime_error("Only http and https URLs are allowed, got: " + scheme);
+        throw std::runtime_error("[SsrfGuard] Only http and https URLs are allowed, got: " + scheme);
     }
 
     auto host = uri.getHost();
 
     if (host.empty())
     {
-        throw std::runtime_error("URL has no host: " + url);
+        throw std::runtime_error("[SsrfGuard] URL has no host: " + url);
     }
 
     // resolve DNS and check for private IPs
@@ -88,13 +87,13 @@ void SsrfGuard::validateUrlImpl(const std::string &url, bool allowLoopback)
         {
             if (isPrivateIp(addr, allowLoopback))
             {
-                throw std::runtime_error("URL resolves to a private IP address: " + host + " -> " + addr.toString());
+                throw std::runtime_error("[SsrfGuard] URL resolves to a private IP address: " + host + " -> " + addr.toString());
             }
         }
     }
     catch (const Poco::Net::HostNotFoundException &)
     {
-        throw std::runtime_error("Cannot resolve host: " + host);
+        throw std::runtime_error("[SsrfGuard] Cannot resolve host: " + host);
     }
     catch (const std::runtime_error &)
     {
@@ -102,7 +101,7 @@ void SsrfGuard::validateUrlImpl(const std::string &url, bool allowLoopback)
     }
     catch (const std::exception &e)
     {
-        throw std::runtime_error("DNS resolution failed for " + host + ": " + e.what());
+        throw std::runtime_error("[SsrfGuard] DNS resolution failed for " + host + ": " + e.what());
     }
 }
 

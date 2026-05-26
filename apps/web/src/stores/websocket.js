@@ -80,17 +80,26 @@ export const useWebSocketStore = defineStore('websocket', () => {
   }
 
   function stopPing() {
-    if (pingTimer) { clearInterval(pingTimer); pingTimer = null }
+    if (pingTimer) {
+      clearInterval(pingTimer)
+      pingTimer = null
+    }
     clearPongTimeout()
   }
 
   function clearPongTimeout() {
-    if (pongTimer) { clearTimeout(pongTimer); pongTimer = null }
+    if (pongTimer) {
+      clearTimeout(pongTimer)
+      pongTimer = null
+    }
   }
 
   function teardown() {
     stopPing()
-    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer)
+      reconnectTimer = null
+    }
     if (ws) {
       ws.onopen = null
       ws.onclose = null

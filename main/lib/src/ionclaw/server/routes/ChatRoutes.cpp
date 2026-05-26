@@ -16,6 +16,7 @@
 #include "spdlog/spdlog.h"
 
 #include "ionclaw/bus/Events.hpp"
+#include "ionclaw/bus/SessionQueue.hpp"
 #include "ionclaw/util/TimeHelper.hpp"
 #include "ionclaw/util/UniqueId.hpp"
 
@@ -26,7 +27,6 @@ namespace server
 
 namespace fs = std::filesystem;
 
-// build a date-organized media directory path: public/media/YYYY/MM/DD
 std::string Routes::mediaDatePath()
 {
     auto now = std::chrono::system_clock::now();
@@ -96,11 +96,7 @@ void Routes::handleChatSend(Poco::Net::HTTPServerRequest &req, Poco::Net::HTTPSe
         // before the async agent loop picks it up (page refresh always shows it)
         sessionManager->ensureSession(sessionKey);
 
-        auto task = taskManager->createTask(
-            taskTitle,
-            message,
-            "web",
-            chatId);
+        auto task = taskManager->createTask(taskTitle, message, "web", chatId);
 
         ionclaw::session::SessionMessage userMsg;
         userMsg.role = "user";
@@ -138,7 +134,7 @@ void Routes::handleChatSend(Poco::Net::HTTPServerRequest &req, Poco::Net::HTTPSe
         // parse optional queue_mode from request
         if (body.contains("queue_mode") && body["queue_mode"].is_string())
         {
-            inbound.queueMode = ionclaw::bus::normalizeQueueMode(body["queue_mode"].get<std::string>());
+            inbound.queueMode = ionclaw::bus::SessionQueue::normalizeQueueMode(body["queue_mode"].get<std::string>());
         }
 
         // steer bypass: if session has an active turn and mode is steer_compatible,
@@ -147,14 +143,13 @@ void Routes::handleChatSend(Poco::Net::HTTPServerRequest &req, Poco::Net::HTTPSe
         {
             auto mode = inbound.queueMode.value();
 
-            if (mode == ionclaw::bus::QueueMode::Steer ||
-                mode == ionclaw::bus::QueueMode::SteerBacklog)
+            if (mode == ionclaw::bus::QueueMode::Steer || mode == ionclaw::bus::QueueMode::SteerBacklog)
             {
                 auto *sq = orchestrator->getSessionQueue();
 
                 if (sq)
                 {
-                    auto settings = ionclaw::bus::resolveQueueSettings(*config, "web", inbound.queueMode);
+                    auto settings = ionclaw::bus::SessionQueue::resolveQueueSettings(*config, "web", inbound.queueMode);
                     sq->enqueue(sessionKey, inbound, ionclaw::bus::QueueMode::Steer, settings);
 
                     // also enqueue followup backup for steer_backlog
@@ -319,8 +314,7 @@ void Routes::handleChatSession(Poco::Net::HTTPServerRequest &, Poco::Net::HTTPSe
         {
             for (const auto &info : sessionManager->listSessions())
             {
-                if (ionclaw::session::SessionKeyUtils::isAgentScoped(info.key) &&
-                    ionclaw::session::SessionKeyUtils::extractBaseKey(info.key) == sessionKey)
+                if (ionclaw::session::SessionKeyUtils::isAgentScoped(info.key) && ionclaw::session::SessionKeyUtils::extractBaseKey(info.key) == sessionKey)
                 {
                     sessionKey = info.key;
                     break;
@@ -337,8 +331,7 @@ void Routes::handleChatSession(Poco::Net::HTTPServerRequest &, Poco::Net::HTTPSe
 
             for (const auto &info : sessionManager->listSessions())
             {
-                if (info.key == sessionKey ||
-                    ionclaw::session::SessionKeyUtils::extractBaseKey(info.key) == sessionKey)
+                if (info.key == sessionKey || ionclaw::session::SessionKeyUtils::extractBaseKey(info.key) == sessionKey)
                 {
                     found = true;
                     break;
@@ -386,8 +379,7 @@ void Routes::handleChatSessionDelete(Poco::Net::HTTPServerRequest &, Poco::Net::
         // delete both agent-scoped and base key sessions
         for (const auto &info : sessionManager->listSessions())
         {
-            if (info.key == sessionKey || info.key == baseKey ||
-                ionclaw::session::SessionKeyUtils::extractBaseKey(info.key) == baseKey)
+            if (info.key == sessionKey || info.key == baseKey || ionclaw::session::SessionKeyUtils::extractBaseKey(info.key) == baseKey)
             {
                 sessionManager->deleteSession(info.key);
             }

@@ -2,6 +2,8 @@
 
 #include <atomic>
 #include <cstddef>
+#include <functional>
+#include <istream>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -16,28 +18,16 @@ namespace util
 class EmbeddedResources
 {
 public:
-    // check if embedded resources are available (compile-time)
     static bool hasWebResources();
     static bool hasSkillResources();
     static bool hasTemplateResources();
 
-    // decompress embedded web ZIP into memory (call once at startup)
     static void loadWebResources();
-
-    // get a web file by path (e.g. "index.html", "assets/index-xxx.js")
-    // returns {pointer, size} or {nullptr, 0} if not found
     static std::pair<const char *, size_t> getWebFile(const std::string &path);
-
-    // extract embedded template to target directory (skips existing files)
     static bool extractTemplate(const std::string &targetDir);
 
-    // load embedded skills from template ZIP into memory (call once at startup)
     static void loadSkills();
-
-    // list embedded skill names (e.g. "memory", "weather")
     static std::vector<std::string> listSkills();
-
-    // get embedded skill content by name, returns empty string if not found
     static std::string getSkillContent(const std::string &name);
 
 private:
@@ -45,13 +35,15 @@ private:
     static std::once_flag webLoadFlag;
     static std::atomic<bool> webLoaded;
 
-    // skill name -> SKILL.md content
     static std::unordered_map<std::string, std::string> skillFiles;
     static std::once_flag skillsLoadFlag;
     static std::atomic<bool> skillsLoaded;
 
     static void loadWebResourcesImpl();
     static void loadSkillsImpl();
+
+    static std::string normalizeZipEntry(const std::string &raw);
+    static void forEachZipFile(const unsigned char *data, size_t size, const std::function<void(const std::string &name, std::istream &content)> &handler);
 };
 
 } // namespace util

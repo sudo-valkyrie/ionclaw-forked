@@ -350,16 +350,9 @@ static const std::set<std::string> STOP_WORDS_AR = {
 
 bool MemoryStore::isStopWord(const std::string &token)
 {
-    return STOP_WORDS.count(token) > 0 ||
-           STOP_WORDS_PT.count(token) > 0 ||
-           STOP_WORDS_ES.count(token) > 0 ||
-           STOP_WORDS_ZH.count(token) > 0 ||
-           STOP_WORDS_JA.count(token) > 0 ||
-           STOP_WORDS_KO.count(token) > 0 ||
-           STOP_WORDS_AR.count(token) > 0;
+    return STOP_WORDS.count(token) > 0 || STOP_WORDS_PT.count(token) > 0 || STOP_WORDS_ES.count(token) > 0 || STOP_WORDS_ZH.count(token) > 0 || STOP_WORDS_JA.count(token) > 0 || STOP_WORDS_KO.count(token) > 0 || STOP_WORDS_AR.count(token) > 0;
 }
 
-// decode UTF-8 string to codepoints
 std::vector<uint32_t> MemoryStore::toCodepoints(const std::string &utf8)
 {
     std::vector<uint32_t> result;
@@ -606,8 +599,7 @@ std::vector<std::string> MemoryStore::extractKeywords(const std::string &query)
             flushWord();
             cjkRun.push_back(cp);
         }
-        else if ((cp < 0x80 && (std::isalnum(static_cast<int>(cp)) || cp == '_' || cp == '-' || cp == '.')) ||
-                 (cp >= 0x80 && !isCjkCodepoint(cp)))
+        else if ((cp < 0x80 && (std::isalnum(static_cast<int>(cp)) || cp == '_' || cp == '-' || cp == '.')) || (cp >= 0x80 && !isCjkCodepoint(cp)))
         {
             // non-CJK multibyte or ASCII word char
             flushCjkRun();
@@ -678,9 +670,7 @@ double MemoryStore::computeTemporalDecay(const std::string &filePath, const std:
     // fallback: use file modification time
     try
     {
-        auto absPath = fs::path(filePath).is_absolute()
-                           ? fs::path(filePath)
-                           : fs::path(baseDir) / filePath;
+        auto absPath = fs::path(filePath).is_absolute() ? fs::path(filePath) : fs::path(baseDir) / filePath;
 
         if (!fs::exists(absPath))
         {
@@ -807,8 +797,9 @@ std::vector<MemorySearchResult> MemoryStore::searchMemory(const std::string &que
         }
     }
 
-    std::sort(results.begin(), results.end(), [](const auto &a, const auto &b)
-              { return a.score > b.score; });
+    // clang-format off
+    std::sort(results.begin(), results.end(), [](const auto &a, const auto &b) { return a.score > b.score; });
+    // clang-format on
 
     if (results.size() > 20)
     {

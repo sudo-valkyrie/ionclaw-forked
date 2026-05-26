@@ -38,7 +38,9 @@ let timer = null
 
 function startTimer() {
   if (!timer) {
-    timer = setInterval(() => { now.value = Date.now() }, 1000)
+    timer = setInterval(() => {
+      now.value = Date.now()
+    }, 1000)
   }
 }
 
@@ -49,10 +51,14 @@ function stopTimer() {
   }
 }
 
-watch(() => props.task.state, (state) => {
-  if (state === 'DOING') startTimer()
-  else stopTimer()
-}, { immediate: true })
+watch(
+  () => props.task.state,
+  (state) => {
+    if (state === 'DOING') startTimer()
+    else stopTimer()
+  },
+  { immediate: true },
+)
 
 onUnmounted(stopTimer)
 
@@ -98,7 +104,7 @@ const tokenSummary = computed(() => {
 <template>
   <div :class="['task-card', task.state === 'ERROR' ? 'task-error' : '']">
     <div class="task-header">
-      <span class="task-title" @click="handleTitleClick" title="Open chat session">{{ task.title }}</span>
+      <span class="task-title" title="Open chat session" @click="handleTitleClick">{{ task.title }}</span>
       <Tag :value="task.state" :severity="severityMap[task.state] || 'secondary'" />
     </div>
 
@@ -127,19 +133,23 @@ const tokenSummary = computed(() => {
 
     <div class="task-meta">
       <div class="task-meta-left">
-        <span v-if="task.agent_name" class="agent-badge">
-          <i class="pi pi-user"></i> {{ task.agent_name }}
-        </span>
-        <span v-if="task.parent_task_id" class="agent-badge">
-          <i class="pi pi-sitemap"></i> subagent
-        </span>
+        <span v-if="task.agent_name" class="agent-badge"> <i class="pi pi-user"></i> {{ task.agent_name }} </span>
+        <span v-if="task.parent_task_id" class="agent-badge"> <i class="pi pi-sitemap"></i> subagent </span>
         <span v-if="task.channel && task.channel !== 'web'" class="channel-badge">
-          <i :class="task.channel === 'telegram' ? 'pi pi-send' : task.channel === 'cron' ? 'pi pi-clock' : 'pi pi-hashtag'"></i>
+          <i
+            :class="
+              task.channel === 'telegram' ? 'pi pi-send' : task.channel === 'cron' ? 'pi pi-clock' : 'pi pi-hashtag'
+            "
+          ></i>
           {{ task.channel }}
         </span>
       </div>
       <div class="task-meta-right">
-        <span v-if="tokenSummary" class="metric-badge" :title="`Prompt: ${formatTokens(tokenSummary.prompt)} | Completion: ${formatTokens(tokenSummary.completion)}${tokenSummary.cacheRead ? ' | Cache: ' + formatTokens(tokenSummary.cacheRead) : ''}`">
+        <span
+          v-if="tokenSummary"
+          class="metric-badge"
+          :title="`Prompt: ${formatTokens(tokenSummary.prompt)} | Completion: ${formatTokens(tokenSummary.completion)}${tokenSummary.cacheRead ? ' | Cache: ' + formatTokens(tokenSummary.cacheRead) : ''}`"
+        >
           <i class="pi pi-bolt"></i> {{ formatTokens(tokenSummary.total) }}
         </span>
         <span v-if="task.tool_count" class="metric-badge" title="Tool calls">

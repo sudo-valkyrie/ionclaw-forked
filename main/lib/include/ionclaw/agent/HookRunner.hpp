@@ -38,7 +38,6 @@ struct HookContext
     std::string taskId;
     nlohmann::json data;
 
-    // set by hooks to block execution (e.g. BeforeToolCall)
     bool blocked = false;
     std::string blockReason;
 };

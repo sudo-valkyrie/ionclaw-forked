@@ -31,32 +31,36 @@ const formattedSize = computed(() => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 })
 
-// For non-public files, fetch via authenticated API and create blob URL
-watch(() => props.path, async (path) => {
-  if (blobUrl.value) {
-    URL.revokeObjectURL(blobUrl.value)
-    blobUrl.value = ''
-  }
-  if (!path || isPublic.value) return
-  loadingPreview.value = true
-  try {
-    const { useAuthStore } = await import('../../stores/auth')
-    const auth = useAuthStore()
-    const token = auth.token
-    const url = `${window.location.origin}/api/files/download/${path.startsWith('/') ? path.slice(1) : path}`
-    const headers = {}
-    if (token) headers['Authorization'] = `Bearer ${token}`
-    const res = await fetch(url, { headers })
-    if (res.ok) {
-      const blob = await res.blob()
-      blobUrl.value = URL.createObjectURL(blob)
+// for non-public files, fetch via authenticated API and create blob URL
+watch(
+  () => props.path,
+  async (path) => {
+    if (blobUrl.value) {
+      URL.revokeObjectURL(blobUrl.value)
+      blobUrl.value = ''
     }
-  } catch (e) {
-    // silent — preview just won't show
-  } finally {
-    loadingPreview.value = false
-  }
-}, { immediate: true })
+    if (!path || isPublic.value) return
+    loadingPreview.value = true
+    try {
+      const { useAuthStore } = await import('../../stores/auth')
+      const auth = useAuthStore()
+      const token = auth.token
+      const url = `${window.location.origin}/api/files/download/${path.startsWith('/') ? path.slice(1) : path}`
+      const headers = {}
+      if (token) headers['Authorization'] = `Bearer ${token}`
+      const res = await fetch(url, { headers })
+      if (res.ok) {
+        const blob = await res.blob()
+        blobUrl.value = URL.createObjectURL(blob)
+      }
+    } catch {
+      // silent — preview just won't show
+    } finally {
+      loadingPreview.value = false
+    }
+  },
+  { immediate: true },
+)
 
 onUnmounted(() => {
   if (blobUrl.value) URL.revokeObjectURL(blobUrl.value)
@@ -79,31 +83,27 @@ async function onDownload() {
       <span class="media-path">{{ path }}</span>
       <div class="media-info">
         <span class="media-meta">{{ mime }} &middot; {{ formattedSize }}</span>
-        <Button label="Download" icon="pi pi-download" size="small" severity="secondary" :loading="downloading" @click="onDownload" />
+        <Button
+          label="Download"
+          icon="pi pi-download"
+          size="small"
+          severity="secondary"
+          :loading="downloading"
+          @click="onDownload"
+        />
       </div>
     </div>
 
     <div class="media-preview">
-      <i v-if="loadingPreview" class="pi pi-spin pi-spinner" style="font-size: 1.5rem; color: var(--p-text-muted-color)"></i>
+      <i
+        v-if="loadingPreview"
+        class="pi pi-spin pi-spinner"
+        style="font-size: 1.5rem; color: var(--p-text-muted-color)"
+      ></i>
       <template v-else-if="mediaSrc">
-        <img
-          v-if="type === 'image'"
-          :src="mediaSrc"
-          :alt="filename"
-          class="preview-image"
-        />
-        <video
-          v-else-if="type === 'video'"
-          :src="mediaSrc"
-          controls
-          class="preview-video"
-        />
-        <audio
-          v-else-if="type === 'audio'"
-          :src="mediaSrc"
-          controls
-          class="preview-audio"
-        />
+        <img v-if="type === 'image'" :src="mediaSrc" :alt="filename" class="preview-image" />
+        <video v-else-if="type === 'video'" :src="mediaSrc" controls class="preview-video" />
+        <audio v-else-if="type === 'audio'" :src="mediaSrc" controls class="preview-audio" />
       </template>
       <p v-else class="media-hint">Unable to load preview.</p>
     </div>

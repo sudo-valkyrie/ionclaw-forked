@@ -17,9 +17,7 @@ const loading = ref(true)
 const filteredTools = computed(() => {
   const q = search.value.trim().toLowerCase()
   if (!q) return tools.value
-  return tools.value.filter(t =>
-    t.name.toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q)
-  )
+  return tools.value.filter((t) => t.name.toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q))
 })
 
 onMounted(async () => {
@@ -110,10 +108,12 @@ const toolParams = computed(() => {
             </div>
             <p v-if="param.description" class="param-desc">{{ param.description }}</p>
             <div v-if="param.enum" class="param-meta">
-              Values: <code v-for="(v, i) in param.enum" :key="v">{{ v }}<span v-if="i < param.enum.length - 1">, </span></code>
+              Values:
+              <code v-for="(v, i) in param.enum" :key="v">{{ v }}<span v-if="i < param.enum.length - 1">, </span></code>
             </div>
             <div v-if="param.minimum != null || param.maximum != null" class="param-meta">
-              Range: {{ param.minimum != null ? param.minimum : '...' }} – {{ param.maximum != null ? param.maximum : '...' }}
+              Range: {{ param.minimum != null ? param.minimum : '...' }} –
+              {{ param.maximum != null ? param.maximum : '...' }}
             </div>
           </div>
         </div>

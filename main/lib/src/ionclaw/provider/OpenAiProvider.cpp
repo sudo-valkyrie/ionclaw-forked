@@ -15,7 +15,6 @@ namespace ionclaw
 namespace provider
 {
 
-// sanitize messages before sending to OpenAI API
 void OpenAiProvider::sanitizeMessages(nlohmann::json &messages)
 {
     for (auto &msg : messages)
@@ -33,9 +32,6 @@ void OpenAiProvider::sanitizeMessages(nlohmann::json &messages)
     }
 }
 
-// validate message transcript ordering:
-// - merge consecutive same-role messages (when no tool_calls involved)
-// - drop orphaned tool results that don't follow an assistant message with tool_calls
 nlohmann::json OpenAiProvider::validateTranscript(const nlohmann::json &messages)
 {
     nlohmann::json validated = nlohmann::json::array();
@@ -66,17 +62,13 @@ nlohmann::json OpenAiProvider::validateTranscript(const nlohmann::json &messages
                 }
             }
 
-            if (lastNonTool &&
-                (*lastNonTool).value("role", "") == "assistant" &&
-                (*lastNonTool).contains("tool_calls") &&
-                (*lastNonTool)["tool_calls"].is_array())
+            if (lastNonTool && (*lastNonTool).value("role", "") == "assistant" && (*lastNonTool).contains("tool_calls") && (*lastNonTool)["tool_calls"].is_array())
             {
                 validated.push_back(msg);
             }
             else
             {
-                spdlog::debug("[OpenAiProvider] Dropping orphaned tool result (tool_call_id={})",
-                              msg.value("tool_call_id", "?"));
+                spdlog::debug("[OpenAiProvider] Dropping orphaned tool result (tool_call_id={})", msg.value("tool_call_id", "?"));
             }
 
             continue;
@@ -89,11 +81,9 @@ nlohmann::json OpenAiProvider::validateTranscript(const nlohmann::json &messages
             {
                 auto &prev = validated.back();
 
-                if (prev.contains("content") && prev["content"].is_string() &&
-                    msg.contains("content") && msg["content"].is_string())
+                if (prev.contains("content") && prev["content"].is_string() && msg.contains("content") && msg["content"].is_string())
                 {
-                    prev["content"] = prev["content"].get<std::string>() + "\n\n" +
-                                      msg["content"].get<std::string>();
+                    prev["content"] = prev["content"].get<std::string>() + "\n\n" + msg["content"].get<std::string>();
                 }
                 else
                 {
@@ -113,10 +103,7 @@ nlohmann::json OpenAiProvider::validateTranscript(const nlohmann::json &messages
         // merge consecutive assistant messages (when neither has tool_calls)
         if (role == "assistant")
         {
-            if (!validated.empty() &&
-                validated.back().value("role", "") == "assistant" &&
-                !validated.back().contains("tool_calls") &&
-                !msg.contains("tool_calls"))
+            if (!validated.empty() && validated.back().value("role", "") == "assistant" && !validated.back().contains("tool_calls") && !msg.contains("tool_calls"))
             {
                 auto &prev = validated.back();
 
@@ -165,8 +152,7 @@ nlohmann::json OpenAiProvider::validateTranscript(const nlohmann::json &messages
     return validated;
 }
 
-OpenAiProvider::OpenAiProvider(const std::string &apiKey, const std::string &baseUrl, int timeout,
-                               const std::map<std::string, std::string> &extraHeaders)
+OpenAiProvider::OpenAiProvider(const std::string &apiKey, const std::string &baseUrl, int timeout, const std::map<std::string, std::string> &extraHeaders)
     : apiKey(apiKey)
     , baseUrl(baseUrl)
     , timeout(timeout)
@@ -220,13 +206,11 @@ nlohmann::json OpenAiProvider::buildRequestBody(const ChatCompletionRequest &req
             // skip reasoning injection for openrouter/auto and x-ai/grok models
             auto modelLower = request.model;
             ionclaw::util::StringHelper::toLowerInPlace(modelLower);
-            bool skipReasoning = modelLower.find("openrouter/auto") != std::string::npos ||
-                                 modelLower.find("x-ai/grok") != std::string::npos;
+            bool skipReasoning = modelLower.find("openrouter/auto") != std::string::npos || modelLower.find("x-ai/grok") != std::string::npos;
 
             if (!skipReasoning)
             {
-                // map thinking level to openrouter reasoning.effort
-                // adaptive → medium, off → none, others pass through
+                // map the thinking level to openrouter reasoning.effort, treating adaptive as medium
                 std::string effort = thinkingLevel;
 
                 if (thinkingLevel == "adaptive")
@@ -504,7 +488,7 @@ ChatCompletionResponse OpenAiProvider::chat(const ChatCompletionRequest &request
         auto safeMsg = ProviderHelper::sanitizeErrorMessage(httpResponse.body);
         auto errorType = ProviderHelper::classifyError(safeMsg);
         spdlog::error("[OpenAiProvider] API error (HTTP {}, type={}): {}", httpResponse.statusCode, errorType, safeMsg);
-        throw std::runtime_error("OpenAI API error (HTTP " + std::to_string(httpResponse.statusCode) + ", " + errorType + "): " + safeMsg);
+        throw std::runtime_error("[OpenAiProvider] OpenAI API error (HTTP " + std::to_string(httpResponse.statusCode) + ", " + errorType + "): " + safeMsg);
     }
 
     // parse and return response
@@ -512,7 +496,7 @@ ChatCompletionResponse OpenAiProvider::chat(const ChatCompletionRequest &request
 
     if (json.is_discarded())
     {
-        throw std::runtime_error("OpenAI API returned invalid JSON (transient)");
+        throw std::runtime_error("[OpenAiProvider] OpenAI API returned invalid JSON (transient)");
     }
 
     return parseResponse(json);
@@ -546,8 +530,8 @@ void OpenAiProvider::chatStream(const ChatCompletionRequest &request, StreamCall
     std::string actualFinishReason;
     bool doneEmitted = false;
 
-    client.postStream("/chat/completions", body.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace), [&](const std::string &data)
-                      {
+    // clang-format off
+    client.postStream("/chat/completions", body.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace), [&](const std::string &data) {
         // handle empty lines and stream termination
         if (data.empty() || data == "[DONE]")
         {
@@ -683,10 +667,12 @@ void OpenAiProvider::chatStream(const ChatCompletionRequest &request, StreamCall
         }
         catch (const nlohmann::json::exception &)
         {
-            // non-JSON data received — likely an HTTP error page or plain-text error
+            // non-JSON data received, likely an HTTP error page or plain-text error
             spdlog::warn("[OpenAiProvider] Non-JSON stream data received: {}", ionclaw::util::StringHelper::utf8SafeTruncate(data, 200));
             throw std::runtime_error("[OpenAiProvider] Non-JSON error response: " + ionclaw::util::StringHelper::utf8SafeTruncate(data, 500));
-        } });
+        }
+    });
+    // clang-format on
 }
 
 } // namespace provider

@@ -16,7 +16,6 @@ public:
     ToolSchema schema() const override;
 
 private:
-    // find the closest matching section when old_text is not found
     static std::string findClosestMatch(const std::string &content, const std::string &query);
 };
 

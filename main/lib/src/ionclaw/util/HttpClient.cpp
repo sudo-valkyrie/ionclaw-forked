@@ -40,33 +40,19 @@ std::unique_ptr<Poco::Net::HTTPClientSession> HttpClient::createSession(const Po
 #ifdef IONCLAW_HAS_SSL
         // use Poco::Net::Context::Ptr (AutoPtr) for exception-safe ownership
 #ifdef _WIN32
-        Poco::Net::Context::Ptr context = new Poco::Net::Context(
-            Poco::Net::Context::CLIENT_USE, "");
+        Poco::Net::Context::Ptr context = new Poco::Net::Context(Poco::Net::Context::CLIENT_USE, "");
 #else
-        Poco::Net::Context::Ptr context = new Poco::Net::Context(
-            Poco::Net::Context::CLIENT_USE,
-            "",
-            "",
-            "",
-            Poco::Net::Context::VERIFY_NONE,
-            9,
-            true,
-            "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
+        Poco::Net::Context::Ptr context = new Poco::Net::Context(Poco::Net::Context::CLIENT_USE, "", "", "", Poco::Net::Context::VERIFY_NONE, 9, true, "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
 #endif
 
-        session = std::make_unique<Poco::Net::HTTPSClientSession>(
-            uri.getHost(),
-            uri.getPort(),
-            context);
+        session = std::make_unique<Poco::Net::HTTPSClientSession>(uri.getHost(), uri.getPort(), context);
 #else
-        throw std::runtime_error("HTTPS is not supported (built without SSL)");
+        throw std::runtime_error("[HttpClient] HTTPS is not supported (built without SSL)");
 #endif
     }
     else
     {
-        session = std::make_unique<Poco::Net::HTTPClientSession>(
-            uri.getHost(),
-            uri.getPort());
+        session = std::make_unique<Poco::Net::HTTPClientSession>(uri.getHost(), uri.getPort());
     }
 
     session->setTimeout(Poco::Timespan(timeoutSeconds, 0));
@@ -230,7 +216,7 @@ void HttpClient::postStream(const std::string &path, const std::string &body, St
     {
         std::string errorBody;
         Poco::StreamCopier::copyToString(rs, errorBody);
-        throw std::runtime_error("HTTP " + std::to_string(status) + ": " + errorBody);
+        throw std::runtime_error("[HttpClient] HTTP " + std::to_string(status) + ": " + errorBody);
     }
 
     std::string line;
@@ -257,15 +243,7 @@ void HttpClient::postStream(const std::string &path, const std::string &body, St
     }
 }
 
-HttpResponse HttpClient::request(
-    const std::string &method,
-    const std::string &url,
-    const std::map<std::string, std::string> &headers,
-    const std::string &body,
-    int timeoutSeconds,
-    bool followRedirects,
-    RedirectValidator redirectValidator,
-    const std::string &proxy)
+HttpResponse HttpClient::request(const std::string &method, const std::string &url, const std::map<std::string, std::string> &headers, const std::string &body, int timeoutSeconds, bool followRedirects, RedirectValidator redirectValidator, const std::string &proxy)
 {
     constexpr int MAX_REDIRECTS = 5;
     std::string currentUrl = url;
@@ -364,7 +342,7 @@ HttpResponse HttpClient::request(
         return result;
     }
 
-    throw std::runtime_error("Too many redirects (max " + std::to_string(MAX_REDIRECTS) + ")");
+    throw std::runtime_error("[HttpClient] Too many redirects (max " + std::to_string(MAX_REDIRECTS) + ")");
 }
 
 } // namespace util

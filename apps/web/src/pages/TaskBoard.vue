@@ -18,9 +18,7 @@ const showConfirm = ref(false)
 const targetTask = ref(null)
 const loading = ref(true)
 
-const agentOptions = computed(() =>
-  agentsStore.agents.map((a) => ({ label: a.name, value: a.name }))
-)
+const agentOptions = computed(() => agentsStore.agents.map((a) => ({ label: a.name, value: a.name })))
 
 onMounted(async () => {
   try {
@@ -69,8 +67,17 @@ async function confirmGoToSession() {
       <TaskColumn title="DONE" :tasks="tasksStore.doneTasks" @go-to-session="handleGoToSession" />
     </div>
 
-    <Dialog v-model:visible="showConfirm" header="Open Session" :modal="true" :style="{ width: '24rem' }" :breakpoints="{ '768px': '90vw' }">
-      <p>Open chat session for <strong>{{ targetTask?.title }}</strong>?</p>
+    <Dialog
+      v-model:visible="showConfirm"
+      header="Open Session"
+      :modal="true"
+      :style="{ width: '24rem' }"
+      :breakpoints="{ '768px': '90vw' }"
+    >
+      <p>
+        Open chat session for <strong>{{ targetTask?.title }}</strong
+        >?
+      </p>
       <template #footer>
         <Button label="Cancel" severity="secondary" text size="small" @click="showConfirm = false" />
         <Button label="Open" icon="pi pi-comments" size="small" @click="confirmGoToSession" />

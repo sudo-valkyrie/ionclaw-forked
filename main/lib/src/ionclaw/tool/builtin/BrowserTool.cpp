@@ -320,14 +320,14 @@ public:
 
     bool isRunning() const
     {
-        if (pid_ <= 0)
+        if (pid <= 0)
         {
             return false;
         }
 
 #ifndef _WIN32
         // check if process is actually alive
-        if (kill(static_cast<pid_t>(pid_.load()), 0) != 0)
+        if (kill(static_cast<pid_t>(pid.load()), 0) != 0)
         {
             return false;
         }
@@ -338,20 +338,20 @@ public:
 
     std::string launch(bool headless)
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock(mutex);
 
-        if (pid_ > 0)
+        if (pid > 0)
         {
             // verify process is still alive
 #ifndef _WIN32
-            if (kill(static_cast<pid_t>(pid_.load()), 0) == 0)
+            if (kill(static_cast<pid_t>(pid.load()), 0) == 0)
             {
                 return "";
             }
 
             // process died, reset and re-launch
-            spdlog::warn("browser: Chrome process {} is dead, re-launching", pid_.load());
-            pid_ = 0;
+            spdlog::warn("[BrowserTool] browser: Chrome process {} is dead, re-launching", pid.load());
+            pid = 0;
 #else
             return "";
 #endif
@@ -430,7 +430,7 @@ public:
             return "Error: failed to launch Chrome";
         }
 
-        pid_ = 1;
+        pid = 1;
 #elif defined(__ANDROID__)
         return "Error: browser tool is not supported on Android";
 #else
@@ -452,7 +452,7 @@ public:
             return "Error: failed to launch Chrome (spawn error " + std::to_string(spawnResult) + ")";
         }
 
-        pid_ = childPid;
+        pid = childPid;
 #endif
 
         for (int i = 0; i < CHROME_LAUNCH_RETRIES; ++i)
@@ -461,18 +461,17 @@ public:
 
             try
             {
-                auto response = ionclaw::util::HttpClient::request(
-                    "GET", "http://127.0.0.1:" + std::to_string(CDP_PORT) + "/json", {}, "", 2, false);
+                auto response = ionclaw::util::HttpClient::request("GET", "http://127.0.0.1:" + std::to_string(CDP_PORT) + "/json", {}, "", 2, false);
 
                 if (response.statusCode == 200)
                 {
-                    spdlog::info("browser: Chrome launched (pid={})", pid_.load());
+                    spdlog::info("[BrowserTool] browser: Chrome launched (pid={})", pid.load());
                     return "";
                 }
             }
             catch (const std::exception &e)
             {
-                spdlog::debug("browser: CDP probe attempt {}/{} failed: {}", i + 1, CHROME_LAUNCH_RETRIES, e.what());
+                spdlog::debug("[BrowserTool] browser: CDP probe attempt {}/{} failed: {}", i + 1, CHROME_LAUNCH_RETRIES, e.what());
             }
         }
 
@@ -481,17 +480,17 @@ public:
 
     void shutdown()
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock(mutex);
 
-        if (pid_ > 0)
+        if (pid > 0)
         {
 #ifdef _WIN32
             std::system("taskkill /F /IM chrome.exe > nul 2>&1");
 #elif !defined(__ANDROID__)
-            kill(static_cast<pid_t>(pid_.load()), SIGTERM);
+            kill(static_cast<pid_t>(pid.load()), SIGTERM);
 #endif
-            pid_ = 0;
-            spdlog::info("browser: Chrome shut down");
+            pid = 0;
+            spdlog::info("[BrowserTool] browser: Chrome shut down");
         }
     }
 
@@ -564,8 +563,8 @@ private:
 #endif
     }
 
-    std::atomic<int> pid_{0};
-    std::mutex mutex_;
+    std::atomic<int> pid{0};
+    std::mutex mutex;
 };
 
 // ── CdpTab ─────────────────────────────────────────────────────────────────
@@ -574,8 +573,8 @@ class CdpTab
 {
 public:
     explicit CdpTab(const std::string &wsUrl)
-        : wsUrl_(wsUrl)
-        , recvBuffer_(WS_BUFFER_SIZE)
+        : socketUrl(wsUrl)
+        , recvBuffer(WS_BUFFER_SIZE)
     {
     }
 
@@ -586,14 +585,14 @@ public:
 
     bool connect()
     {
-        std::lock_guard<std::mutex> lock(wsMutex_);
+        std::lock_guard<std::mutex> lock(wsMutex);
 
         constexpr int maxRetries = 8;
         constexpr int retryDelayMs = 500;
 
         // parse the URL once - use explicit host/port to avoid scheme-dependent port mapping
         // (Poco maps ws:// to port 80 when port is not explicit)
-        Poco::URI uri(wsUrl_);
+        Poco::URI uri(socketUrl);
         auto host = uri.getHost();
         auto port = static_cast<unsigned short>(CDP_PORT); // always use our known port
         auto path = uri.getPathAndQuery();
@@ -603,32 +602,29 @@ public:
             path = "/";
         }
 
-        spdlog::debug("browser: CDP connecting to {}:{}{} (from wsUrl={})", host, port, path, wsUrl_);
+        spdlog::debug("[BrowserTool] browser: CDP connecting to {}:{}{} (from wsUrl={})", host, port, path, socketUrl);
 
         for (int attempt = 0; attempt < maxRetries; ++attempt)
         {
             try
             {
                 // reset any previous failed state
-                ws_.reset();
-                session_.reset();
+                socket.reset();
+                httpSession.reset();
 
-                session_ = std::make_unique<Poco::Net::HTTPClientSession>(host, port);
-                session_->setTimeout(Poco::Timespan(CDP_TIMEOUT_SECONDS, 0));
+                httpSession = std::make_unique<Poco::Net::HTTPClientSession>(host, port);
+                httpSession->setTimeout(Poco::Timespan(CDP_TIMEOUT_SECONDS, 0));
 
-                Poco::Net::HTTPRequest request(
-                    Poco::Net::HTTPRequest::HTTP_GET,
-                    path,
-                    Poco::Net::HTTPMessage::HTTP_1_1);
+                Poco::Net::HTTPRequest request(Poco::Net::HTTPRequest::HTTP_GET, path, Poco::Net::HTTPMessage::HTTP_1_1);
                 request.set("Host", host + ":" + std::to_string(port));
                 request.set("Origin", "http://" + host + ":" + std::to_string(port));
 
                 Poco::Net::HTTPResponse response;
-                ws_ = std::make_unique<Poco::Net::WebSocket>(*session_, request, response);
-                ws_->setReceiveTimeout(Poco::Timespan(CDP_TIMEOUT_SECONDS, 0));
+                socket = std::make_unique<Poco::Net::WebSocket>(*httpSession, request, response);
+                socket->setReceiveTimeout(Poco::Timespan(CDP_TIMEOUT_SECONDS, 0));
 
-                connected_ = true;
-                spdlog::info("browser: CDP connected to {}:{}{}", host, port, path);
+                connected = true;
+                spdlog::info("[BrowserTool] browser: CDP connected to {}:{}{}", host, port, path);
 
                 // enable required CDP domains
                 sendCommandLocked(cdp::page::Enable);
@@ -640,10 +636,9 @@ public:
             }
             catch (const std::exception &e)
             {
-                spdlog::warn("browser: CDP connect attempt {}/{} to {}:{} failed: {}",
-                             attempt + 1, maxRetries, host, port, e.what());
-                ws_.reset();
-                session_.reset();
+                spdlog::warn("[BrowserTool] browser: CDP connect attempt {}/{} to {}:{} failed: {}", attempt + 1, maxRetries, host, port, e.what());
+                socket.reset();
+                httpSession.reset();
 
                 if (attempt + 1 < maxRetries)
                 {
@@ -652,53 +647,53 @@ public:
             }
         }
 
-        spdlog::error("browser: CDP connect to {}:{}{} failed after {} attempts", host, port, path, maxRetries);
+        spdlog::error("[BrowserTool] browser: CDP connect to {}:{}{} failed after {} attempts", host, port, path, maxRetries);
         return false;
     }
 
     void disconnect()
     {
-        std::lock_guard<std::mutex> lock(wsMutex_);
-        connected_ = false;
-        ws_.reset();
-        session_.reset();
+        std::lock_guard<std::mutex> lock(wsMutex);
+        connected = false;
+        socket.reset();
+        httpSession.reset();
     }
 
-    bool isConnected() const { return connected_; }
+    bool isConnected() const { return connected; }
 
     nlohmann::json sendCommand(const std::string &method, const nlohmann::json &cmdParams = nlohmann::json::object())
     {
-        std::lock_guard<std::mutex> lock(wsMutex_);
+        std::lock_guard<std::mutex> lock(wsMutex);
         return sendCommandLocked(method, cmdParams);
     }
 
     // drain pending events without sending a command
     void drainEvents()
     {
-        std::lock_guard<std::mutex> lock(wsMutex_);
+        std::lock_guard<std::mutex> lock(wsMutex);
 
-        if (!connected_ || !ws_)
+        if (!connected || !socket)
         {
             return;
         }
 
         try
         {
-            ws_->setReceiveTimeout(Poco::Timespan(0, EVENT_DRAIN_TIMEOUT_MS * 1000));
+            socket->setReceiveTimeout(Poco::Timespan(0, EVENT_DRAIN_TIMEOUT_MS * 1000));
             int flags;
 
             while (true)
             {
                 try
                 {
-                    auto n = ws_->receiveFrame(recvBuffer_.data(), static_cast<int>(recvBuffer_.size()), flags);
+                    auto n = socket->receiveFrame(recvBuffer.data(), static_cast<int>(recvBuffer.size()), flags);
 
                     if (n <= 0)
                     {
                         break;
                     }
 
-                    auto msg = nlohmann::json::parse(std::string(recvBuffer_.data(), n), nullptr, false);
+                    auto msg = nlohmann::json::parse(std::string(recvBuffer.data(), n), nullptr, false);
 
                     if (msg.is_discarded())
                     {
@@ -716,19 +711,19 @@ public:
                 }
             }
 
-            ws_->setReceiveTimeout(Poco::Timespan(CDP_TIMEOUT_SECONDS, 0));
+            socket->setReceiveTimeout(Poco::Timespan(CDP_TIMEOUT_SECONDS, 0));
         }
         catch (const std::exception &e)
         {
-            spdlog::debug("browser: drainEvents error: {}", e.what());
+            spdlog::debug("[BrowserTool] browser: drainEvents error: {}", e.what());
         }
     }
 
     bool waitForEvent(const std::string &eventName, int timeoutMs = 10000)
     {
-        std::lock_guard<std::mutex> lock(wsMutex_);
+        std::lock_guard<std::mutex> lock(wsMutex);
 
-        if (!connected_ || !ws_)
+        if (!connected || !socket)
         {
             return false;
         }
@@ -740,13 +735,13 @@ public:
         {
             try
             {
-                ws_->setReceiveTimeout(Poco::Timespan(0, 500000));
+                socket->setReceiveTimeout(Poco::Timespan(0, 500000));
 
-                auto n = ws_->receiveFrame(recvBuffer_.data(), static_cast<int>(recvBuffer_.size()), flags);
+                auto n = socket->receiveFrame(recvBuffer.data(), static_cast<int>(recvBuffer.size()), flags);
 
                 if (n > 0)
                 {
-                    auto msg = nlohmann::json::parse(std::string(recvBuffer_.data(), n), nullptr, false);
+                    auto msg = nlohmann::json::parse(std::string(recvBuffer.data(), n), nullptr, false);
 
                     if (msg.is_discarded())
                     {
@@ -760,7 +755,7 @@ public:
 
                     if (msg.contains("method") && msg["method"].is_string() && msg["method"].get<std::string>() == eventName)
                     {
-                        ws_->setReceiveTimeout(Poco::Timespan(CDP_TIMEOUT_SECONDS, 0));
+                        socket->setReceiveTimeout(Poco::Timespan(CDP_TIMEOUT_SECONDS, 0));
                         return true;
                     }
                 }
@@ -770,19 +765,19 @@ public:
             }
         }
 
-        ws_->setReceiveTimeout(Poco::Timespan(CDP_TIMEOUT_SECONDS, 0));
+        socket->setReceiveTimeout(Poco::Timespan(CDP_TIMEOUT_SECONDS, 0));
         return false;
     }
 
     // page state accessors
     std::vector<ConsoleMessage> getConsole(bool clear = false)
     {
-        std::lock_guard<std::mutex> lock(stateMutex_);
-        auto result = console_;
+        std::lock_guard<std::mutex> lock(stateMutex);
+        auto result = consoleLog;
 
         if (clear)
         {
-            console_.clear();
+            consoleLog.clear();
         }
 
         return result;
@@ -790,12 +785,12 @@ public:
 
     std::vector<PageError> getErrors(bool clear = false)
     {
-        std::lock_guard<std::mutex> lock(stateMutex_);
-        auto result = errors_;
+        std::lock_guard<std::mutex> lock(stateMutex);
+        auto result = errorList;
 
         if (clear)
         {
-            errors_.clear();
+            errorList.clear();
         }
 
         return result;
@@ -803,12 +798,12 @@ public:
 
     std::vector<NetworkRequestEntry> getRequests(bool clear = false)
     {
-        std::lock_guard<std::mutex> lock(stateMutex_);
-        auto result = requests_;
+        std::lock_guard<std::mutex> lock(stateMutex);
+        auto result = requestList;
 
         if (clear)
         {
-            requests_.clear();
+            requestList.clear();
         }
 
         return result;
@@ -816,61 +811,61 @@ public:
 
     void clearConsole()
     {
-        std::lock_guard<std::mutex> lock(stateMutex_);
-        console_.clear();
+        std::lock_guard<std::mutex> lock(stateMutex);
+        consoleLog.clear();
     }
 
     void clearErrors()
     {
-        std::lock_guard<std::mutex> lock(stateMutex_);
-        errors_.clear();
+        std::lock_guard<std::mutex> lock(stateMutex);
+        errorList.clear();
     }
 
     void clearRequests()
     {
-        std::lock_guard<std::mutex> lock(stateMutex_);
-        requests_.clear();
+        std::lock_guard<std::mutex> lock(stateMutex);
+        requestList.clear();
     }
 
-    bool hasPendingDialog() const { return hasPendingDialog_.load(); }
+    bool hasPendingDialog() const { return dialogPending.load(); }
 
     nlohmann::json pendingDialogInfo()
     {
-        std::lock_guard<std::mutex> lock(stateMutex_);
-        return dialogInfo_;
+        std::lock_guard<std::mutex> lock(stateMutex);
+        return dialogInfo;
     }
 
-    void clearPendingDialog() { hasPendingDialog_ = false; }
+    void clearPendingDialog() { dialogPending = false; }
 
     void setAuthCredentials(const std::string &username, const std::string &password)
     {
-        std::lock_guard<std::mutex> lock(stateMutex_);
-        authUsername_ = username;
-        authPassword_ = password;
+        std::lock_guard<std::mutex> lock(stateMutex);
+        authUsername = username;
+        authPassword = password;
     }
 
     void clearAuthCredentials()
     {
-        std::lock_guard<std::mutex> lock(stateMutex_);
-        authUsername_.clear();
-        authPassword_.clear();
+        std::lock_guard<std::mutex> lock(stateMutex);
+        authUsername.clear();
+        authPassword.clear();
     }
 
     bool hasAuthCredentials()
     {
-        std::lock_guard<std::mutex> lock(stateMutex_);
-        return !authUsername_.empty();
+        std::lock_guard<std::mutex> lock(stateMutex);
+        return !authUsername.empty();
     }
 
 private:
     nlohmann::json sendCommandLocked(const std::string &method, const nlohmann::json &cmdParams = nlohmann::json::object())
     {
-        if (!connected_ || !ws_)
+        if (!connected || !socket)
         {
-            throw std::runtime_error("CDP not connected");
+            throw std::runtime_error("[BrowserTool] CDP not connected");
         }
 
-        auto id = nextId_++;
+        auto id = nextId++;
 
         nlohmann::json message = {
             {"id", id},
@@ -879,24 +874,24 @@ private:
         };
 
         auto msgStr = message.dump();
-        ws_->sendFrame(msgStr.data(), static_cast<int>(msgStr.size()), Poco::Net::WebSocket::FRAME_TEXT);
+        socket->sendFrame(msgStr.data(), static_cast<int>(msgStr.size()), Poco::Net::WebSocket::FRAME_TEXT);
 
         int flags;
 
         while (true)
         {
             // check if a recursive call (via processEventLocked) already buffered our response
-            auto buffered = pendingResponses_.find(id);
+            auto buffered = pendingResponses.find(id);
 
-            if (buffered != pendingResponses_.end())
+            if (buffered != pendingResponses.end())
             {
                 auto resp = std::move(buffered->second);
-                pendingResponses_.erase(buffered);
+                pendingResponses.erase(buffered);
 
                 if (resp.contains("error"))
                 {
                     auto errorMsg = resp["error"].value("message", "unknown CDP error");
-                    throw std::runtime_error("CDP error: " + errorMsg);
+                    throw std::runtime_error("[BrowserTool] CDP error: " + errorMsg);
                 }
 
                 return resp.value("result", nlohmann::json::object());
@@ -906,22 +901,22 @@ private:
 
             do
             {
-                auto n = ws_->receiveFrame(recvBuffer_.data(), static_cast<int>(recvBuffer_.size()), flags);
+                auto n = socket->receiveFrame(recvBuffer.data(), static_cast<int>(recvBuffer.size()), flags);
 
                 if (n <= 0)
                 {
-                    connected_ = false;
-                    throw std::runtime_error("CDP connection closed unexpectedly");
+                    connected = false;
+                    throw std::runtime_error("[BrowserTool] CDP connection closed unexpectedly");
                 }
 
                 // handle close frames
                 if ((flags & Poco::Net::WebSocket::FRAME_OP_BITMASK) == Poco::Net::WebSocket::FRAME_OP_CLOSE)
                 {
-                    connected_ = false;
-                    throw std::runtime_error("CDP connection closed by browser");
+                    connected = false;
+                    throw std::runtime_error("[BrowserTool] CDP connection closed by browser");
                 }
 
-                assembled.append(recvBuffer_.data(), static_cast<size_t>(n));
+                assembled.append(recvBuffer.data(), static_cast<size_t>(n));
             } while (!(flags & Poco::Net::WebSocket::FRAME_FLAG_FIN));
 
             auto response = nlohmann::json::parse(assembled, nullptr, false);
@@ -933,7 +928,7 @@ private:
 
             // process events while waiting for our response
             // (processEventLocked may recursively call sendCommandLocked,
-            // which can consume and buffer our response in pendingResponses_)
+            // which can consume and buffer our response in pendingResponses)
             if (!response.contains("id"))
             {
                 processEventLocked(response);
@@ -944,14 +939,14 @@ private:
             {
                 // buffer the response so the caller waiting for this id can find it
                 auto respId = response["id"].get<int64_t>();
-                pendingResponses_[respId] = std::move(response);
+                pendingResponses[respId] = std::move(response);
                 continue;
             }
 
             if (response.contains("error"))
             {
                 auto errorMsg = response["error"].value("message", "unknown CDP error");
-                throw std::runtime_error("CDP error: " + errorMsg);
+                throw std::runtime_error("[BrowserTool] CDP error: " + errorMsg);
             }
 
             return response.value("result", nlohmann::json::object());
@@ -965,7 +960,7 @@ private:
 
         if (method == cdp::runtime::ConsoleAPICalled)
         {
-            std::lock_guard<std::mutex> lock(stateMutex_);
+            std::lock_guard<std::mutex> lock(stateMutex);
 
             ConsoleMessage msg;
             msg.level = params.value("type", "log");
@@ -1003,16 +998,16 @@ private:
             }
 
             msg.text = text.str();
-            console_.push_back(std::move(msg));
+            consoleLog.push_back(std::move(msg));
 
-            if (console_.size() > MAX_CONSOLE_MESSAGES)
+            if (consoleLog.size() > MAX_CONSOLE_MESSAGES)
             {
-                console_.erase(console_.begin());
+                consoleLog.erase(consoleLog.begin());
             }
         }
         else if (method == cdp::runtime::ExceptionThrown)
         {
-            std::lock_guard<std::mutex> lock(stateMutex_);
+            std::lock_guard<std::mutex> lock(stateMutex);
 
             PageError err;
 
@@ -1033,16 +1028,16 @@ private:
                 }
             }
 
-            errors_.push_back(std::move(err));
+            errorList.push_back(std::move(err));
 
-            if (errors_.size() > MAX_PAGE_ERRORS)
+            if (errorList.size() > MAX_PAGE_ERRORS)
             {
-                errors_.erase(errors_.begin());
+                errorList.erase(errorList.begin());
             }
         }
         else if (method == cdp::network::RequestWillBeSent)
         {
-            std::lock_guard<std::mutex> lock(stateMutex_);
+            std::lock_guard<std::mutex> lock(stateMutex);
 
             NetworkRequestEntry req;
             req.requestId = params.value("requestId", "");
@@ -1054,20 +1049,20 @@ private:
                 req.method = params["request"].value("method", "GET");
             }
 
-            requests_.push_back(std::move(req));
+            requestList.push_back(std::move(req));
 
-            if (requests_.size() > MAX_NETWORK_REQUESTS)
+            if (requestList.size() > MAX_NETWORK_REQUESTS)
             {
-                requests_.erase(requests_.begin());
+                requestList.erase(requestList.begin());
             }
         }
         else if (method == cdp::network::ResponseReceived)
         {
-            std::lock_guard<std::mutex> lock(stateMutex_);
+            std::lock_guard<std::mutex> lock(stateMutex);
 
             auto requestId = params.value("requestId", "");
 
-            for (auto it = requests_.rbegin(); it != requests_.rend(); ++it)
+            for (auto it = requestList.rbegin(); it != requestList.rend(); ++it)
             {
                 if (it->requestId == requestId)
                 {
@@ -1083,11 +1078,11 @@ private:
         }
         else if (method == cdp::network::LoadingFinished)
         {
-            std::lock_guard<std::mutex> lock(stateMutex_);
+            std::lock_guard<std::mutex> lock(stateMutex);
 
             auto requestId = params.value("requestId", "");
 
-            for (auto it = requests_.rbegin(); it != requests_.rend(); ++it)
+            for (auto it = requestList.rbegin(); it != requestList.rend(); ++it)
             {
                 if (it->requestId == requestId)
                 {
@@ -1104,9 +1099,9 @@ private:
             {
                 std::string user, pass;
                 {
-                    std::lock_guard<std::mutex> lock(stateMutex_);
-                    user = authUsername_;
-                    pass = authPassword_;
+                    std::lock_guard<std::mutex> lock(stateMutex);
+                    user = authUsername;
+                    pass = authPassword;
                 }
 
                 if (!user.empty())
@@ -1124,7 +1119,7 @@ private:
                     }
                     catch (const std::exception &e)
                     {
-                        spdlog::warn("browser: failed to respond to auth challenge: {}", e.what());
+                        spdlog::warn("[BrowserTool] browser: failed to respond to auth challenge: {}", e.what());
                     }
                 }
                 else
@@ -1140,7 +1135,7 @@ private:
                     }
                     catch (const std::exception &e)
                     {
-                        spdlog::debug("browser: failed to cancel auth: {}", e.what());
+                        spdlog::debug("[BrowserTool] browser: failed to cancel auth: {}", e.what());
                     }
                 }
             }
@@ -1158,45 +1153,45 @@ private:
                 }
                 catch (const std::exception &e)
                 {
-                    spdlog::debug("browser: failed to continue paused request: {}", e.what());
+                    spdlog::debug("[BrowserTool] browser: failed to continue paused request: {}", e.what());
                 }
             }
         }
         else if (method == cdp::page::JavascriptDialogOpening)
         {
             {
-                std::lock_guard<std::mutex> lock(stateMutex_);
-                dialogInfo_ = params;
+                std::lock_guard<std::mutex> lock(stateMutex);
+                dialogInfo = params;
             }
-            hasPendingDialog_ = true;
+            dialogPending = true;
         }
         else if (method == cdp::page::JavascriptDialogClosed)
         {
-            hasPendingDialog_ = false;
+            dialogPending = false;
             {
-                std::lock_guard<std::mutex> lock(stateMutex_);
-                dialogInfo_ = nlohmann::json::object();
+                std::lock_guard<std::mutex> lock(stateMutex);
+                dialogInfo = nlohmann::json::object();
             }
         }
     }
 
-    std::string wsUrl_;
-    std::unique_ptr<Poco::Net::HTTPClientSession> session_;
-    std::unique_ptr<Poco::Net::WebSocket> ws_;
-    std::atomic<bool> connected_{false};
-    std::atomic<int64_t> nextId_{1};
-    std::mutex wsMutex_;
-    std::vector<char> recvBuffer_;                                 // reusable receive buffer (allocated once per tab)
-    std::unordered_map<int64_t, nlohmann::json> pendingResponses_; // buffered responses from recursive calls
+    std::string socketUrl;
+    std::unique_ptr<Poco::Net::HTTPClientSession> httpSession;
+    std::unique_ptr<Poco::Net::WebSocket> socket;
+    std::atomic<bool> connected{false};
+    std::atomic<int64_t> nextId{1};
+    std::mutex wsMutex;
+    std::vector<char> recvBuffer;                                 // reusable receive buffer (allocated once per tab)
+    std::unordered_map<int64_t, nlohmann::json> pendingResponses; // buffered responses from recursive calls
 
-    std::vector<ConsoleMessage> console_;
-    std::vector<PageError> errors_;
-    std::vector<NetworkRequestEntry> requests_;
-    std::atomic<bool> hasPendingDialog_{false};
-    nlohmann::json dialogInfo_;
-    std::string authUsername_;
-    std::string authPassword_;
-    std::mutex stateMutex_; // protects console_, errors_, requests_, dialogInfo_, auth*
+    std::vector<ConsoleMessage> consoleLog;
+    std::vector<PageError> errorList;
+    std::vector<NetworkRequestEntry> requestList;
+    std::atomic<bool> dialogPending{false};
+    nlohmann::json dialogInfo;
+    std::string authUsername;
+    std::string authPassword;
+    std::mutex stateMutex; // protects consoleLog, errorList, requestList, dialogInfo, auth*
 };
 
 // ── TabManager ─────────────────────────────────────────────────────────────
@@ -1214,12 +1209,11 @@ public:
     {
         try
         {
-            auto response = ionclaw::util::HttpClient::request(
-                "GET", "http://127.0.0.1:" + std::to_string(CDP_PORT) + "/json", {}, "", 5, false);
+            auto response = ionclaw::util::HttpClient::request("GET", "http://127.0.0.1:" + std::to_string(CDP_PORT) + "/json", {}, "", 5, false);
 
             if (response.statusCode != 200)
             {
-                spdlog::warn("browser: /json endpoint returned status {}", response.statusCode);
+                spdlog::warn("[BrowserTool] browser: /json endpoint returned status {}", response.statusCode);
                 return nlohmann::json::array();
             }
 
@@ -1227,7 +1221,7 @@ public:
 
             if (targets.is_discarded())
             {
-                spdlog::warn("browser: /json returned invalid JSON");
+                spdlog::warn("[BrowserTool] browser: /json returned invalid JSON");
                 return nlohmann::json::array();
             }
 
@@ -1249,7 +1243,7 @@ public:
         }
         catch (const std::exception &e)
         {
-            spdlog::warn("browser: failed to list tabs: {}", e.what());
+            spdlog::warn("[BrowserTool] browser: failed to list tabs: {}", e.what());
             return nlohmann::json::array();
         }
     }
@@ -1258,12 +1252,11 @@ public:
     {
         try
         {
-            auto response = ionclaw::util::HttpClient::request(
-                "GET", "http://127.0.0.1:" + std::to_string(CDP_PORT) + "/json/new?" + url, {}, "", 5, false);
+            auto response = ionclaw::util::HttpClient::request("GET", "http://127.0.0.1:" + std::to_string(CDP_PORT) + "/json/new?" + url, {}, "", 5, false);
 
             if (response.statusCode != 200)
             {
-                spdlog::warn("browser: /json/new returned status {}", response.statusCode);
+                spdlog::warn("[BrowserTool] browser: /json/new returned status {}", response.statusCode);
                 return "";
             }
 
@@ -1271,7 +1264,7 @@ public:
 
             if (result.is_discarded())
             {
-                spdlog::warn("browser: /json/new returned invalid JSON");
+                spdlog::warn("[BrowserTool] browser: /json/new returned invalid JSON");
                 return "";
             }
 
@@ -1279,15 +1272,15 @@ public:
 
             if (!targetId.empty())
             {
-                std::lock_guard<std::mutex> lock(mutex_);
-                currentTargetId_ = targetId;
+                std::lock_guard<std::mutex> lock(mutex);
+                activeTargetId = targetId;
             }
 
             return targetId;
         }
         catch (const std::exception &e)
         {
-            spdlog::warn("browser: failed to open tab: {}", e.what());
+            spdlog::warn("[BrowserTool] browser: failed to open tab: {}", e.what());
             return "";
         }
     }
@@ -1296,22 +1289,21 @@ public:
     {
         try
         {
-            auto response = ionclaw::util::HttpClient::request(
-                "GET", "http://127.0.0.1:" + std::to_string(CDP_PORT) + "/json/activate/" + targetId, {}, "", 5, false);
+            auto response = ionclaw::util::HttpClient::request("GET", "http://127.0.0.1:" + std::to_string(CDP_PORT) + "/json/activate/" + targetId, {}, "", 5, false);
 
             if (response.statusCode == 200)
             {
-                std::lock_guard<std::mutex> lock(mutex_);
-                currentTargetId_ = targetId;
+                std::lock_guard<std::mutex> lock(mutex);
+                activeTargetId = targetId;
                 return true;
             }
 
-            spdlog::warn("browser: /json/activate returned status {}", response.statusCode);
+            spdlog::warn("[BrowserTool] browser: /json/activate returned status {}", response.statusCode);
             return false;
         }
         catch (const std::exception &e)
         {
-            spdlog::warn("browser: failed to focus tab {}: {}", targetId, e.what());
+            spdlog::warn("[BrowserTool] browser: failed to focus tab {}: {}", targetId, e.what());
             return false;
         }
     }
@@ -1322,8 +1314,8 @@ public:
 
         if (id.empty())
         {
-            std::lock_guard<std::mutex> lock(mutex_);
-            id = currentTargetId_;
+            std::lock_guard<std::mutex> lock(mutex);
+            id = activeTargetId;
         }
 
         if (id.empty())
@@ -1335,29 +1327,28 @@ public:
         {
             // disconnect CdpTab if we have one
             {
-                std::lock_guard<std::mutex> lock(mutex_);
-                tabs_.erase(id);
+                std::lock_guard<std::mutex> lock(mutex);
+                cachedTabs.erase(id);
 
-                if (currentTargetId_ == id)
+                if (activeTargetId == id)
                 {
-                    currentTargetId_.clear();
+                    activeTargetId.clear();
                 }
             }
 
-            auto response = ionclaw::util::HttpClient::request(
-                "GET", "http://127.0.0.1:" + std::to_string(CDP_PORT) + "/json/close/" + id, {}, "", 5, false);
+            auto response = ionclaw::util::HttpClient::request("GET", "http://127.0.0.1:" + std::to_string(CDP_PORT) + "/json/close/" + id, {}, "", 5, false);
 
             // set current to another available tab
             {
-                std::lock_guard<std::mutex> lock(mutex_);
+                std::lock_guard<std::mutex> lock(mutex);
 
-                if (currentTargetId_.empty())
+                if (activeTargetId.empty())
                 {
                     auto tabs = listTabs();
 
                     if (!tabs.empty())
                     {
-                        currentTargetId_ = tabs[0].value("targetId", "");
+                        activeTargetId = tabs[0].value("targetId", "");
                     }
                 }
             }
@@ -1366,17 +1357,17 @@ public:
         }
         catch (const std::exception &e)
         {
-            spdlog::warn("browser: failed to close tab {}: {}", id, e.what());
+            spdlog::warn("[BrowserTool] browser: failed to close tab {}: {}", id, e.what());
             return false;
         }
     }
 
     CdpTab *currentTab()
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock(mutex);
 
         // auto-select current tab if not set
-        if (currentTargetId_.empty())
+        if (activeTargetId.empty())
         {
             auto tabs = listTabs();
 
@@ -1386,37 +1377,37 @@ public:
 
                 if (!id.empty())
                 {
-                    currentTargetId_ = id;
+                    activeTargetId = id;
                     break;
                 }
             }
         }
 
-        if (currentTargetId_.empty())
+        if (activeTargetId.empty())
         {
             return nullptr;
         }
 
-        return getOrConnectTabLocked(currentTargetId_);
+        return getOrConnectTabLocked(activeTargetId);
     }
 
     CdpTab *getTab(const std::string &targetId)
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock(mutex);
         return getOrConnectTabLocked(targetId);
     }
 
     void disconnectAll()
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        tabs_.clear();
-        currentTargetId_.clear();
+        std::lock_guard<std::mutex> lock(mutex);
+        cachedTabs.clear();
+        activeTargetId.clear();
     }
 
     std::string currentTargetId()
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return currentTargetId_;
+        std::lock_guard<std::mutex> lock(mutex);
+        return activeTargetId;
     }
 
 private:
@@ -1429,9 +1420,9 @@ private:
 
     CdpTab *getOrConnectTabLocked(const std::string &targetId)
     {
-        auto it = tabs_.find(targetId);
+        auto it = cachedTabs.find(targetId);
 
-        if (it != tabs_.end() && it->second->isConnected())
+        if (it != cachedTabs.end() && it->second->isConnected())
         {
             return it->second.get();
         }
@@ -1441,8 +1432,7 @@ private:
 
         try
         {
-            auto response = ionclaw::util::HttpClient::request(
-                "GET", "http://127.0.0.1:" + std::to_string(CDP_PORT) + "/json", {}, "", 5, false);
+            auto response = ionclaw::util::HttpClient::request("GET", "http://127.0.0.1:" + std::to_string(CDP_PORT) + "/json", {}, "", 5, false);
 
             if (response.statusCode == 200)
             {
@@ -1455,10 +1445,7 @@ private:
                         if (target.value("id", "") == targetId)
                         {
                             targetFound = true;
-                            spdlog::debug("browser: found target {} (url={}, type={})",
-                                          targetId,
-                                          target.value("url", ""),
-                                          target.value("type", ""));
+                            spdlog::debug("[BrowserTool] browser: found target {} (url={}, type={})", targetId, target.value("url", ""), target.value("type", ""));
                             break;
                         }
                     }
@@ -1467,20 +1454,20 @@ private:
         }
         catch (const std::exception &e)
         {
-            spdlog::warn("browser: failed to query /json for target {}: {}", targetId, e.what());
+            spdlog::warn("[BrowserTool] browser: failed to query /json for target {}: {}", targetId, e.what());
             return nullptr;
         }
 
         if (!targetFound)
         {
-            spdlog::warn("browser: target {} not found in /json response", targetId);
+            spdlog::warn("[BrowserTool] browser: target {} not found in /json response", targetId);
             return nullptr;
         }
 
         // construct WebSocket URL deterministically (don't rely on webSocketDebuggerUrl
         // which may be absent in newer Chrome versions or have wrong host/port)
         auto wsUrl = "ws://127.0.0.1:" + std::to_string(CDP_PORT) + "/devtools/page/" + targetId;
-        spdlog::debug("browser: connecting to {}", wsUrl);
+        spdlog::debug("[BrowserTool] browser: connecting to {}", wsUrl);
 
         auto tab = std::make_unique<CdpTab>(wsUrl);
 
@@ -1490,13 +1477,13 @@ private:
         }
 
         auto *ptr = tab.get();
-        tabs_[targetId] = std::move(tab);
+        cachedTabs[targetId] = std::move(tab);
         return ptr;
     }
 
-    std::map<std::string, std::unique_ptr<CdpTab>> tabs_;
-    std::string currentTargetId_;
-    std::mutex mutex_;
+    std::map<std::string, std::unique_ptr<CdpTab>> cachedTabs;
+    std::string activeTargetId;
+    std::mutex mutex;
 };
 
 // ── action helpers ─────────────────────────────────────────────────────────
@@ -1605,7 +1592,7 @@ std::string formatPageState(CdpTab &tab)
     }
     catch (const std::exception &e)
     {
-        spdlog::warn("browser: failed to get page info: {}", e.what());
+        spdlog::warn("[BrowserTool] browser: failed to get page info: {}", e.what());
     }
 
     auto ctx = formatTabContext();
@@ -1638,8 +1625,7 @@ ElementPos getElementCenter(CdpTab &tab, const std::string &selector)
 
     auto value = evalResult(result).value("value", nlohmann::json());
 
-    if (value.is_null() || !value.contains("x") || !value["x"].is_number() ||
-        !value.contains("y") || !value["y"].is_number())
+    if (value.is_null() || !value.contains("x") || !value["x"].is_number() || !value.contains("y") || !value["y"].is_number())
     {
         return {0, 0, false};
     }
@@ -1847,8 +1833,7 @@ std::string capResult(std::string text, int maxChars = MAX_TOOL_RESULT_CHARS)
 {
     if (maxChars > 0 && text.size() > static_cast<size_t>(maxChars))
     {
-        text = ionclaw::util::StringHelper::utf8SafeTruncate(text, maxChars) + "\n... [truncated at " +
-               std::to_string(maxChars / 1024) + "KB]";
+        text = ionclaw::util::StringHelper::utf8SafeTruncate(text, maxChars) + "\n... [truncated at " + std::to_string(maxChars / 1024) + "KB]";
     }
 
     return text;
@@ -1886,9 +1871,7 @@ std::string actionStart(bool headless)
         currentUrl = tabs[0].value("url", "");
     }
 
-    return "Browser started with " + std::to_string(tabs.size()) + " tab(s)." +
-           (currentUrl.empty() ? "" : " Current page: " + currentUrl) +
-           " Use action='navigate' with a URL to go to a page.";
+    return "Browser started with " + std::to_string(tabs.size()) + " tab(s)." + (currentUrl.empty() ? "" : " Current page: " + currentUrl) + " Use action='navigate' with a URL to go to a page.";
 }
 
 std::string actionStop()
@@ -1942,9 +1925,7 @@ std::string actionOpen(bool headless, const std::string &url)
     }
 
     auto tabs = TabManager::instance().listTabs();
-    return "Opened new tab (targetId=" + targetId + "). " +
-           "Now " + std::to_string(tabs.size()) + " tab(s) open. " +
-           "NOTE: If you just want to go to a URL, use action='navigate' instead - "
+    return "Opened new tab (targetId=" + targetId + "). " + "Now " + std::to_string(tabs.size()) + " tab(s) open. " + "NOTE: If you just want to go to a URL, use action='navigate' instead - "
            "it uses the current tab without opening new ones.";
 }
 
@@ -1997,8 +1978,7 @@ std::string actionClose(const std::string &targetId)
         }
     }
 
-    return "Tab closed. " + std::to_string(tabs.size()) + " tab(s) remaining. " +
-           "Current tab: " + (currentUrl.empty() ? "(unknown)" : currentUrl);
+    return "Tab closed. " + std::to_string(tabs.size()) + " tab(s) remaining. " + "Current tab: " + (currentUrl.empty() ? "(unknown)" : currentUrl);
 }
 
 std::string actionNavigate(CdpTab &tab, const std::string &url)
@@ -2018,8 +1998,7 @@ std::string actionNavigate(CdpTab &tab, const std::string &url)
 
     if (!errorText.empty())
     {
-        return "Error: navigation to " + url + " failed: " + errorText +
-               " " + formatTabContext();
+        return "Error: navigation to " + url + " failed: " + errorText + " " + formatTabContext();
     }
 
     bool loaded = tab.waitForEvent(cdp::page::LoadEventFired, 30000);
@@ -2033,7 +2012,7 @@ std::string actionNavigate(CdpTab &tab, const std::string &url)
     }
     catch (const std::exception &e)
     {
-        spdlog::warn("browser: failed to get page info after navigation: {}", e.what());
+        spdlog::warn("[BrowserTool] browser: failed to get page info after navigation: {}", e.what());
     }
 
     auto ctx = formatTabContext();
@@ -2041,10 +2020,7 @@ std::string actionNavigate(CdpTab &tab, const std::string &url)
     if (!loaded)
     {
         return "Warning: page load timed out (30s). "
-               "Current URL: " +
-               (pageInfo.url.empty() ? "(unknown)" : pageInfo.url) +
-               (pageInfo.title.empty() ? "" : " | Title: \"" + pageInfo.title + "\"") +
-               " " + ctx + ". The page may still be loading - use action='snapshot' to check.";
+               "Current URL: " + (pageInfo.url.empty() ? "(unknown)" : pageInfo.url) + (pageInfo.title.empty() ? "" : " | Title: \"" + pageInfo.title + "\"") + " " + ctx + ". The page may still be loading - use action='snapshot' to check.";
     }
 
     std::ostringstream out;
@@ -2094,12 +2070,10 @@ std::string actionBack(CdpTab &tab)
     }
     catch (const std::exception &e)
     {
-        spdlog::warn("browser: failed to get page info after back: {}", e.what());
+        spdlog::warn("[BrowserTool] browser: failed to get page info after back: {}", e.what());
     }
 
-    return "Navigated back to: " + (info.url.empty() ? "(unknown)" : info.url) +
-           (info.title.empty() ? "" : " | Title: \"" + info.title + "\"") +
-           " " + formatTabContext();
+    return "Navigated back to: " + (info.url.empty() ? "(unknown)" : info.url) + (info.title.empty() ? "" : " | Title: \"" + info.title + "\"") + " " + formatTabContext();
 }
 
 std::string actionForward(CdpTab &tab)
@@ -2126,12 +2100,10 @@ std::string actionForward(CdpTab &tab)
     }
     catch (const std::exception &e)
     {
-        spdlog::warn("browser: failed to get page info after forward: {}", e.what());
+        spdlog::warn("[BrowserTool] browser: failed to get page info after forward: {}", e.what());
     }
 
-    return "Navigated forward to: " + (info.url.empty() ? "(unknown)" : info.url) +
-           (info.title.empty() ? "" : " | Title: \"" + info.title + "\"") +
-           " " + formatTabContext();
+    return "Navigated forward to: " + (info.url.empty() ? "(unknown)" : info.url) + (info.title.empty() ? "" : " | Title: \"" + info.title + "\"") + " " + formatTabContext();
 }
 
 std::string actionReload(CdpTab &tab)
@@ -2147,12 +2119,10 @@ std::string actionReload(CdpTab &tab)
     }
     catch (const std::exception &e)
     {
-        spdlog::warn("browser: failed to get page info after reload: {}", e.what());
+        spdlog::warn("[BrowserTool] browser: failed to get page info after reload: {}", e.what());
     }
 
-    return "Reloaded: " + (info.url.empty() ? "(unknown)" : info.url) +
-           (info.title.empty() ? "" : " | Title: \"" + info.title + "\"") +
-           " " + formatTabContext();
+    return "Reloaded: " + (info.url.empty() ? "(unknown)" : info.url) + (info.title.empty() ? "" : " | Title: \"" + info.title + "\"") + " " + formatTabContext();
 }
 
 std::string actionScroll(CdpTab &tab, const nlohmann::json &params)
@@ -2203,11 +2173,7 @@ std::string actionScroll(CdpTab &tab, const nlohmann::json &params)
     int viewportSize = pos.value(isHorizontal ? "vw" : "vh", 0);
     int scrolledAmount = std::abs(isHorizontal ? scrollX : scrollY);
 
-    return "Scrolled " + direction + " " + std::to_string(scrolledAmount) + "px. " +
-           "Position: " + std::to_string(scrollPos) + "/" + std::to_string(totalSize) + "px" +
-           (totalSize > 0 && viewportSize > 0
-                ? " (" + std::to_string(std::min(100, (scrollPos + viewportSize) * 100 / totalSize)) + "% visible)"
-                : "");
+    return "Scrolled " + direction + " " + std::to_string(scrolledAmount) + "px. " + "Position: " + std::to_string(scrollPos) + "/" + std::to_string(totalSize) + "px" + (totalSize > 0 && viewportSize > 0 ? " (" + std::to_string(std::min(100, (scrollPos + viewportSize) * 100 / totalSize)) + "% visible)" : "");
 }
 
 std::string actionWait(CdpTab *tab, const nlohmann::json &params)
@@ -2341,8 +2307,7 @@ std::string actionSnapshot(CdpTab &tab, const nlohmann::json &params)
                 var items = [];
                 var refCount = 0;
                 function walk(node, depth) {
-                    if (depth > )" +
-                  std::to_string(MAX_SNAPSHOT_DEPTH) + R"( || items.length > )" + std::to_string(MAX_SNAPSHOT_NODES) + R"() return;
+                    if (depth > )" + std::to_string(MAX_SNAPSHOT_DEPTH) + R"( || items.length > )" + std::to_string(MAX_SNAPSHOT_NODES) + R"() return;
                     var tag = node.tagName ? node.tagName.toLowerCase() : '';
                     if (!tag || tag === 'script' || tag === 'style' || tag === 'noscript' || tag === 'svg') return;
 
@@ -2354,17 +2319,13 @@ std::string actionSnapshot(CdpTab &tab, const nlohmann::json &params)
                     }
                     text = text.trim().substring(0, 80);
 
-                    var isInteractive = /^(a|button|input|select|textarea)$/.test(tag) ||
-                        /^(button|link|textbox|checkbox|radio|combobox|menuitem|tab|switch|slider)$/.test(role) ||
-                        node.getAttribute('contenteditable') === 'true' ||
-                        (node.getAttribute('tabindex') && node.getAttribute('tabindex') !== '-1');
+                    var isInteractive = /^(a|button|input|select|textarea)$/.test(tag) || /^(button|link|textbox|checkbox|radio|combobox|menuitem|tab|switch|slider)$/.test(role) || node.getAttribute('contenteditable') === 'true' || (node.getAttribute('tabindex') && node.getAttribute('tabindex') !== '-1');
                     var isStructural = /^(h[1-6]|nav|main|header|footer|section|article|form|table|ul|ol|li|dialog|details|summary)$/.test(tag);
                     var isMedia = tag === 'img' || tag === 'video' || tag === 'audio';
 
                     if (isInteractive || isStructural || isMedia) {
                         var effectiveRole = role || tag;
-                        var name = ariaLabel || text || (node.value || '') || (node.placeholder || '') ||
-                                   (node.alt || '') || (node.title || '') || '';
+                        var name = ariaLabel || text || (node.value || '') || (node.placeholder || '') || (node.alt || '') || (node.title || '') || '';
                         name = name.substring(0, 80);
 
                         var info = {d: depth, r: effectiveRole, n: name};
@@ -2597,8 +2558,7 @@ ToolResult actionScreenshot(CdpTab &tab, const nlohmann::json &params)
     constexpr int PREVIEW_JPEG_QUALITY = 50;
 
     int w = 0, h = 0, channels = 0;
-    unsigned char *pixels = stbi_load_from_memory(
-        reinterpret_cast<const unsigned char *>(rawBytes.data()), static_cast<int>(rawBytes.size()), &w, &h, &channels, 3);
+    unsigned char *pixels = stbi_load_from_memory(reinterpret_cast<const unsigned char *>(rawBytes.data()), static_cast<int>(rawBytes.size()), &w, &h, &channels, 3);
 
     if (!pixels)
     {
@@ -2626,8 +2586,7 @@ ToolResult actionScreenshot(CdpTab &tab, const nlohmann::json &params)
         if (!ok)
         {
             stbi_image_free(pixels);
-            return "Screenshot saved: " + filePath.string() + " (" + std::to_string(fullSizeKB) + "KB, " +
-                   std::to_string(w) + "x" + std::to_string(h) + "). "
+            return "Screenshot saved: " + filePath.string() + " (" + std::to_string(fullSizeKB) + "KB, " + std::to_string(w) + "x" + std::to_string(h) + "). "
                                                                  "Warning: could not generate preview (resize failed).";
         }
 
@@ -2643,19 +2602,14 @@ ToolResult actionScreenshot(CdpTab &tab, const nlohmann::json &params)
 
     if (jpegBuf.empty())
     {
-        return "Screenshot saved: " + filePath.string() + " (" + std::to_string(fullSizeKB) + "KB, " +
-               std::to_string(w) + "x" + std::to_string(h) + "). "
+        return "Screenshot saved: " + filePath.string() + " (" + std::to_string(fullSizeKB) + "KB, " + std::to_string(w) + "x" + std::to_string(h) + "). "
                                                              "Warning: could not generate preview (JPEG encode failed).";
     }
 
     auto previewB64 = Base64::encode(jpegBuf.data(), jpegBuf.size());
     auto previewKB = jpegBuf.size() / 1024;
 
-    auto description = "Screenshot captured (" + std::to_string(w) + "x" + std::to_string(h) + ", " +
-                       std::to_string(fullSizeKB) + "KB). " +
-                       "Preview: " + std::to_string(previewW) + "x" + std::to_string(previewH) + " (" +
-                       std::to_string(previewKB) + "KB). " +
-                       "Full resolution: " + filePath.string();
+    auto description = "Screenshot captured (" + std::to_string(w) + "x" + std::to_string(h) + ", " + std::to_string(fullSizeKB) + "KB). " + "Preview: " + std::to_string(previewW) + "x" + std::to_string(previewH) + " (" + std::to_string(previewKB) + "KB). " + "Full resolution: " + filePath.string();
 
     ToolResult toolResult;
     toolResult.text = description;
@@ -2679,8 +2633,7 @@ std::string actionInspect(CdpTab &tab)
                 'a, button, input, textarea, select, [role="button"], [role="link"], '
                 + '[role="textbox"], [contenteditable="true"], [tabindex]:not([tabindex="-1"])'
             );
-            for (var i = 0; i < els.length && items.length < )" +
-              std::to_string(MAX_INTERACTIVE_ELEMENTS) + R"(; i++) {
+            for (var i = 0; i < els.length && items.length < )" + std::to_string(MAX_INTERACTIVE_ELEMENTS) + R"(; i++) {
                 var el = els[i];
                 var rect = el.getBoundingClientRect();
                 if (rect.width === 0 || rect.height === 0) continue;
@@ -2943,11 +2896,9 @@ std::string actionSelect(CdpTab &tab, const nlohmann::json &params)
     auto valuesJson = values.dump();
 
     auto js = "(() => {"
-              "const el = document.querySelector('" +
-              safeSelector + "');"
+              "const el = document.querySelector('" + safeSelector + "');"
                              "if (!el || el.tagName.toLowerCase() !== 'select') return null;"
-                             "const vals = " +
-              valuesJson + ";"
+                             "const vals = " + valuesJson + ";"
                            "for (const opt of el.options) {"
                            "  opt.selected = vals.includes(opt.value) || vals.includes(opt.textContent.trim());"
                            "}"
@@ -2989,7 +2940,7 @@ std::string actionFill(CdpTab &tab, const nlohmann::json &params)
         if (selector.empty())
         {
             skipped++;
-            spdlog::warn("browser: fill skipped field with empty selector");
+            spdlog::warn("[BrowserTool] browser: fill skipped field with empty selector");
             continue;
         }
 
@@ -3072,8 +3023,7 @@ std::string actionFill(CdpTab &tab, const nlohmann::json &params)
         filled++;
     }
 
-    return "Filled " + std::to_string(filled) + " field(s)." +
-           (skipped > 0 ? " Warning: " + std::to_string(skipped) + " field(s) skipped (missing selector)." : "");
+    return "Filled " + std::to_string(filled) + " field(s)." + (skipped > 0 ? " Warning: " + std::to_string(skipped) + " field(s) skipped (missing selector)." : "");
 }
 
 std::string actionDrag(CdpTab &tab, const nlohmann::json &params)
@@ -3177,14 +3127,12 @@ std::string actionResize(CdpTab &tab, const nlohmann::json &params)
 
     if (width <= 0 || height <= 0)
     {
-        return "Error: viewport dimensions must be positive (got " +
-               std::to_string(width) + "x" + std::to_string(height) + ").";
+        return "Error: viewport dimensions must be positive (got " + std::to_string(width) + "x" + std::to_string(height) + ").";
     }
 
     if (width > 7680 || height > 4320)
     {
-        return "Error: viewport dimensions too large (max 7680x4320, got " +
-               std::to_string(width) + "x" + std::to_string(height) + ").";
+        return "Error: viewport dimensions too large (max 7680x4320, got " + std::to_string(width) + "x" + std::to_string(height) + ").";
     }
 
     tab.sendCommand(cdp::emulation::SetDeviceMetricsOverride, {
@@ -3607,8 +3555,7 @@ std::string actionSetGeolocation(CdpTab &tab, const nlohmann::json &params)
 
     if (latitude < -90.0 || latitude > 90.0 || longitude < -180.0 || longitude > 180.0)
     {
-        return "Error: invalid coordinates. Latitude must be -90 to 90, longitude -180 to 180 (got " +
-               std::to_string(latitude) + ", " + std::to_string(longitude) + ").";
+        return "Error: invalid coordinates. Latitude must be -90 to 90, longitude -180 to 180 (got " + std::to_string(latitude) + ", " + std::to_string(longitude) + ").";
     }
 
     tab.sendCommand(cdp::emulation::SetGeolocationOverride, {
@@ -3728,8 +3675,7 @@ std::string actionSetDevice(CdpTab &tab, const nlohmann::json &params)
     {
         if (width > 7680 || height > 4320)
         {
-            return "Error: viewport dimensions too large (max 7680x4320, got " +
-                   std::to_string(width) + "x" + std::to_string(height) + ").";
+            return "Error: viewport dimensions too large (max 7680x4320, got " + std::to_string(width) + "x" + std::to_string(height) + ").";
         }
 
         tab.sendCommand(cdp::emulation::SetDeviceMetricsOverride, {
@@ -4122,7 +4068,7 @@ ToolResult BrowserTool::execute(const nlohmann::json &params, const ToolContext 
     }
     catch (const std::exception &e)
     {
-        spdlog::error("browser: action '{}' failed: {}", action, e.what());
+        spdlog::error("[BrowserTool] browser: action '{}' failed: {}", action, e.what());
 
         // on CDP error, only disconnect the failed tab (not all tabs)
         auto currentId = TabManager::instance().currentTargetId();
@@ -4137,8 +4083,7 @@ ToolResult BrowserTool::execute(const nlohmann::json &params, const ToolContext 
             }
         }
 
-        return "Error: action '" + action + "' failed: " + std::string(e.what()) +
-               ". If this persists, try action='stop' then action='start' to restart the browser.";
+        return "Error: action '" + action + "' failed: " + std::string(e.what()) + ". If this persists, try action='stop' then action='start' to restart the browser.";
     }
 }
 

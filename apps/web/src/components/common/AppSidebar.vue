@@ -13,7 +13,7 @@ const { connected: wsConnected } = storeToRefs(wsStore)
 const authStore = useAuthStore()
 const darkMode = useDark()
 const base = import.meta.env.BASE_URL
-const logoSrc = computed(() => darkMode.value ? `${base}logo-dark.png` : `${base}logo.png`)
+const logoSrc = computed(() => (darkMode.value ? `${base}logo-dark.png` : `${base}logo.png`))
 
 const navItems = [
   { label: 'Chat', icon: 'pi pi-comments', path: '/' },
@@ -56,8 +56,8 @@ function logout() {
         v-for="item in navItems"
         :key="item.path"
         :class="['nav-item', { active: $route.path === item.path }]"
-        @click="navigate(item.path)"
         :title="item.label"
+        @click="navigate(item.path)"
       >
         <i :class="item.icon"></i>
         <span class="nav-label">{{ item.label }}</span>
@@ -73,15 +73,7 @@ function logout() {
         size="small"
         @click="toggleDarkMode"
       />
-      <Button
-        icon="pi pi-sign-out"
-        severity="secondary"
-        text
-        rounded
-        size="small"
-        @click="logout"
-        title="Logout"
-      />
+      <Button icon="pi pi-sign-out" severity="secondary" text rounded size="small" title="Logout" @click="logout" />
     </div>
   </aside>
 
@@ -138,8 +130,12 @@ function logout() {
   border-radius: 50%;
 }
 
-.status-dot.online { background: var(--p-primary-color); }
-.status-dot.offline { background: var(--p-red-500); }
+.status-dot.online {
+  background: var(--p-primary-color);
+}
+.status-dot.offline {
+  background: var(--p-red-500);
+}
 
 .sidebar-nav {
   flex: 1;

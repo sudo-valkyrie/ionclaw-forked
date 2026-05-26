@@ -18,18 +18,16 @@ namespace transcription
 namespace fs = std::filesystem;
 
 LocalTranscriptionProvider::LocalTranscriptionProvider(const std::string &providerName)
-    : providerName_(providerName)
+    : name(providerName)
 {
 }
 
 std::string LocalTranscriptionProvider::providerName() const
 {
-    return providerName_;
+    return name;
 }
 
-TranscriptionResult LocalTranscriptionProvider::transcribe(const std::string &audioData,
-                                                           const std::string &format,
-                                                           const TranscriptionContext &context) const
+TranscriptionResult LocalTranscriptionProvider::transcribe(const std::string &audioData, const std::string &format, const TranscriptionContext &context) const
 {
     // write audio to temporary file
     auto tmpDir = fs::temp_directory_path();
@@ -40,15 +38,14 @@ TranscriptionResult LocalTranscriptionProvider::transcribe(const std::string &au
 
         if (!ofs.is_open())
         {
-            spdlog::error("[local-transcription] failed to write temp file: {}", tmpFile.string());
+            spdlog::error("[LocalTranscriptionProvider] failed to write temp file: {}", tmpFile.string());
             return {};
         }
 
         ofs.write(audioData.data(), static_cast<std::streamsize>(audioData.size()));
     }
 
-    // strip provider prefix from model to get binary name or model size
-    // e.g. "local/base" → "base", "local/whisper" → "whisper"
+    // strip the provider prefix to get the model name (e.g. "local/base" becomes "base")
     auto model = context.model;
     auto slashPos = model.find('/');
 
@@ -57,12 +54,8 @@ TranscriptionResult LocalTranscriptionProvider::transcribe(const std::string &au
         model = model.substr(slashPos + 1);
     }
 
-    // build command: try whisper CLI (openai-whisper pip package)
-    // output format json gives structured output with text, language, etc.
-    std::string command = "whisper \"" + tmpFile.string() + "\""
-                                                            " --output_format json"
-                                                            " --output_dir \"" +
-                          tmpDir.string() + "\"";
+    // build the whisper CLI command requesting structured json output
+    std::string command = "whisper \"" + tmpFile.string() + "\" --output_format json --output_dir \"" + tmpDir.string() + "\"";
 
     if (!model.empty() && model != "whisper")
     {
@@ -81,14 +74,14 @@ TranscriptionResult LocalTranscriptionProvider::transcribe(const std::string &au
     command += " 2>/dev/null";
 #endif
 
-    spdlog::info("[local-transcription] running: {}", command);
+    spdlog::info("[LocalTranscriptionProvider] running: {}", command);
 
     // execute via popen (RAII guard ensures pclose on all exit paths)
     ionclaw::util::PipeGuard pipe(command.c_str());
 
     if (!pipe)
     {
-        spdlog::error("[local-transcription] failed to execute whisper command");
+        spdlog::error("[LocalTranscriptionProvider] failed to execute whisper command");
         fs::remove(tmpFile);
         return {};
     }
@@ -146,7 +139,7 @@ TranscriptionResult LocalTranscriptionProvider::transcribe(const std::string &au
         }
         catch (const std::exception &e)
         {
-            spdlog::error("[local-transcription] failed to parse JSON output: {}", e.what());
+            spdlog::error("[LocalTranscriptionProvider] failed to parse JSON output: {}", e.what());
         }
 
         fs::remove(jsonFile);
@@ -173,7 +166,7 @@ TranscriptionResult LocalTranscriptionProvider::transcribe(const std::string &au
 
     if (exitCode != 0 && result.text.empty())
     {
-        spdlog::error("[local-transcription] whisper exited with code {}", exitCode);
+        spdlog::error("[LocalTranscriptionProvider] whisper exited with code {}", exitCode);
         return {};
     }
 
@@ -186,9 +179,7 @@ TranscriptionResult LocalTranscriptionProvider::transcribe(const std::string &au
         result.text = result.text.substr(start, end - start + 1);
     }
 
-    spdlog::info("[local-transcription] transcribed {:.1f}s (lang={}): {}",
-                 result.durationSeconds, result.language,
-                 ionclaw::util::StringHelper::utf8SafeTruncate(result.text, 100));
+    spdlog::info("[LocalTranscriptionProvider] transcribed {:.1f}s (lang={}): {}", result.durationSeconds, result.language, ionclaw::util::StringHelper::utf8SafeTruncate(result.text, 100));
 
     return result;
 }

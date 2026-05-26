@@ -121,8 +121,7 @@ ToolResult SpawnTool::execute(const nlohmann::json &params, const ToolContext &c
 
         if (hookCtx.blocked)
         {
-            return "Error: Spawn blocked" +
-                   (hookCtx.blockReason.empty() ? "" : ": " + hookCtx.blockReason);
+            return "Error: Spawn blocked" + (hookCtx.blockReason.empty() ? "" : ": " + hookCtx.blockReason);
         }
     }
 
@@ -168,8 +167,7 @@ ToolResult SpawnTool::execute(const nlohmann::json &params, const ToolContext &c
             effectiveTimeout = ionclaw::agent::SubagentRegistry::DEFAULT_TIMEOUT_SECONDS;
         }
 
-        auto record = context.subagentRegistry->spawn(
-            context.sessionKey, task, childSessionKey, model, thinking, parentDepth, effectiveTimeout);
+        auto record = context.subagentRegistry->spawn(context.sessionKey, task, childSessionKey, model, thinking, parentDepth, effectiveTimeout);
         runId = record.runId;
     }
 

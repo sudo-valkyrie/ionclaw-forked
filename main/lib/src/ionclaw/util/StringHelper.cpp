@@ -11,7 +11,6 @@ namespace ionclaw
 namespace util
 {
 
-// truncate a utf-8 string to at most maxBytes without breaking multi-byte sequences
 std::string StringHelper::utf8SafeTruncate(const std::string &str, size_t maxBytes)
 {
     if (str.size() <= maxBytes)
@@ -55,8 +54,6 @@ std::string StringHelper::utf8SafeTruncate(const std::string &str, size_t maxByt
     return str.substr(0, maxBytes);
 }
 
-// strip Unicode control (Cc), format (Cf), line separator (U+2028), paragraph separator (U+2029)
-// from strings to be embedded in prompts, preventing injection via invisible characters
 std::string StringHelper::sanitizeForPrompt(const std::string &str)
 {
     std::string result;
@@ -117,11 +114,7 @@ std::string StringHelper::sanitizeForPrompt(const std::string &str)
 
             // skip line separator (U+2028), paragraph separator (U+2029)
             // skip zero-width chars (U+200B-U+200F, U+202A-U+202E, U+2060-U+2064, U+FEFF)
-            bool skip = (cp == 0x2028 || cp == 0x2029 ||
-                         (cp >= 0x200B && cp <= 0x200F) ||
-                         (cp >= 0x202A && cp <= 0x202E) ||
-                         (cp >= 0x2060 && cp <= 0x2064) ||
-                         cp == 0xFEFF);
+            bool skip = (cp == 0x2028 || cp == 0x2029 || (cp >= 0x200B && cp <= 0x200F) || (cp >= 0x202A && cp <= 0x202E) || (cp >= 0x2060 && cp <= 0x2064) || cp == 0xFEFF);
 
             if (!skip)
             {
@@ -161,8 +154,6 @@ std::string StringHelper::sanitizeForPrompt(const std::string &str)
     return result;
 }
 
-// find all code regions (fenced ``` blocks and inline `backticks`) in text
-// returns sorted vector of [start, end) pairs
 std::vector<std::pair<size_t, size_t>> StringHelper::findCodeRegions(const std::string &str)
 {
     std::vector<std::pair<size_t, size_t>> regions;
@@ -238,7 +229,6 @@ std::vector<std::pair<size_t, size_t>> StringHelper::findCodeRegions(const std::
     return regions;
 }
 
-// check if a position falls inside any code region
 bool StringHelper::isInsideCode(const std::vector<std::pair<size_t, size_t>> &regions, size_t pos)
 {
     for (const auto &[start, end] : regions)
@@ -257,10 +247,6 @@ bool StringHelper::isInsideCode(const std::vector<std::pair<size_t, size_t>> &re
     return false;
 }
 
-// strip reasoning XML tags from LLM output (code-aware):
-// - <think>, <thinking>, <thought>, <antthinking>: remove tags AND content
-// - <final>: remove tags but preserve content
-// - tags inside code blocks (``` or `) are preserved
 std::string StringHelper::stripReasoningTags(const std::string &str)
 {
     if (str.empty())
@@ -278,9 +264,7 @@ std::string StringHelper::stripReasoningTags(const std::string &str)
     std::string result = str;
 
     // process thinking tags: remove matched pairs and their content
-    static thread_local const std::regex thinkingRe(
-        R"(<(?:think|thinking|thought|antthinking)(?:\s[^>]*)?>[\s\S]*?</(?:think|thinking|thought|antthinking)>)",
-        std::regex::icase);
+    static thread_local const std::regex thinkingRe(R"(<(?:think|thinking|thought|antthinking)(?:\s[^>]*)?>[\s\S]*?</(?:think|thinking|thought|antthinking)>)", std::regex::icase);
 
     // iteratively remove non-code thinking blocks (positions shift after each removal)
     for (;;)
@@ -299,21 +283,17 @@ std::string StringHelper::stripReasoningTags(const std::string &str)
             break;
         }
 
-        result = result.substr(0, static_cast<size_t>(match.position())) +
-                 result.substr(static_cast<size_t>(match.position()) + match.length());
+        result = result.substr(0, static_cast<size_t>(match.position())) + result.substr(static_cast<size_t>(match.position()) + match.length());
     }
 
     // remove unclosed thinking tags (only if not inside code)
-    static thread_local const std::regex unclosedRe(
-        R"(<(?:think|thinking|thought|antthinking)(?:\s[^>]*)?>[\s\S]*$)",
-        std::regex::icase);
+    static thread_local const std::regex unclosedRe(R"(<(?:think|thinking|thought|antthinking)(?:\s[^>]*)?>[\s\S]*$)", std::regex::icase);
 
     {
         auto regions = findCodeRegions(result);
         std::smatch match;
 
-        if (std::regex_search(result, match, unclosedRe) &&
-            !isInsideCode(regions, static_cast<size_t>(match.position())))
+        if (std::regex_search(result, match, unclosedRe) && !isInsideCode(regions, static_cast<size_t>(match.position())))
         {
             result = result.substr(0, static_cast<size_t>(match.position()));
         }
@@ -341,9 +321,9 @@ std::string StringHelper::stripReasoningTags(const std::string &str)
 
 void StringHelper::toLowerInPlace(std::string &str)
 {
-    std::transform(str.begin(), str.end(), str.begin(),
-                   [](unsigned char c)
-                   { return c < 0x80 ? static_cast<unsigned char>(std::tolower(c)) : c; });
+    // clang-format off
+    std::transform(str.begin(), str.end(), str.begin(), [](unsigned char c) { return c < 0x80 ? static_cast<unsigned char>(std::tolower(c)) : c; });
+    // clang-format on
 }
 
 std::string StringHelper::toLower(const std::string &str)
@@ -377,7 +357,6 @@ std::string StringHelper::urlEncode(const std::string &str)
     return encoded.str();
 }
 
-// mask a token preserving prefix and suffix for identification
 std::string StringHelper::maskToken(const std::string &token)
 {
     if (token.size() < 12)
@@ -393,7 +372,6 @@ std::string StringHelper::maskToken(const std::string &token)
     return token.substr(0, 6) + "..." + token.substr(token.size() - 4);
 }
 
-// redact sensitive tokens in tool output
 std::string StringHelper::redactSensitive(const std::string &text)
 {
     if (text.empty())

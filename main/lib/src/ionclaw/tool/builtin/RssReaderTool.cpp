@@ -20,7 +20,6 @@ namespace tool
 namespace builtin
 {
 
-// extract text content from a child element by tag name
 std::string RssReaderTool::getElementText(Poco::XML::Element *parent, const std::string &tagName)
 {
     if (!parent)
@@ -39,7 +38,6 @@ std::string RssReaderTool::getElementText(Poco::XML::Element *parent, const std:
     return element ? element->innerText() : "";
 }
 
-// strip html tags and unescape basic entities
 std::string RssReaderTool::stripHtmlTags(const std::string &html)
 {
     // thread_local to avoid data race on concurrent std::regex_search calls
@@ -65,7 +63,6 @@ std::string RssReaderTool::stripHtmlTags(const std::string &html)
     return result.substr(start, end - start + 1);
 }
 
-// execute rss/atom feed fetch and parse
 ToolResult RssReaderTool::execute(const nlohmann::json &params, const ToolContext &context)
 {
     auto url = params.value("url", std::string(""));
@@ -95,9 +92,7 @@ ToolResult RssReaderTool::execute(const nlohmann::json &params, const ToolContex
     try
     {
         // fetch feed
-        auto response = ionclaw::util::HttpClient::request(
-            "GET", url, {{"User-Agent", "IonClaw/1.0 RSS Reader"}}, "", 30, true,
-            ionclaw::util::SsrfGuard::validateUrl);
+        auto response = ionclaw::util::HttpClient::request("GET", url, {{"User-Agent", "IonClaw/1.0 RSS Reader"}}, "", 30, true, ionclaw::util::SsrfGuard::validateUrl);
 
         if (response.statusCode != 200)
         {
@@ -226,7 +221,6 @@ ToolResult RssReaderTool::execute(const nlohmann::json &params, const ToolContex
     }
 }
 
-// schema definition
 ToolSchema RssReaderTool::schema() const
 {
     return {

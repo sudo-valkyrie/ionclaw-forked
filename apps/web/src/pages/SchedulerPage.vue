@@ -32,7 +32,13 @@ const jobSchema = [
     ],
   },
   { name: 'every_seconds', type: 'int', label: 'Interval (seconds)', visible_when: { type: 'every' } },
-  { name: 'cron_expr', type: 'text', label: 'Cron Expression', placeholder: '0 9 * * *', visible_when: { type: 'cron' } },
+  {
+    name: 'cron_expr',
+    type: 'text',
+    label: 'Cron Expression',
+    placeholder: '0 9 * * *',
+    visible_when: { type: 'cron' },
+  },
   { name: 'at', type: 'datetime', label: 'Date/Time', visible_when: { type: 'at' } },
 ]
 
@@ -49,17 +55,23 @@ const newJob = ref(emptyJob())
 const editJob = ref(emptyJob())
 const editJobId = ref('')
 
-watch(() => newJob.value.type, (val) => {
-  if (val === 'at' && !newJob.value.at) {
-    newJob.value.at = new Date(Date.now() + 30 * 60 * 1000)
-  }
-})
+watch(
+  () => newJob.value.type,
+  (val) => {
+    if (val === 'at' && !newJob.value.at) {
+      newJob.value.at = new Date(Date.now() + 30 * 60 * 1000)
+    }
+  },
+)
 
-watch(() => editJob.value.type, (val) => {
-  if (val === 'at' && !editJob.value.at) {
-    editJob.value.at = new Date(Date.now() + 30 * 60 * 1000)
-  }
-})
+watch(
+  () => editJob.value.type,
+  (val) => {
+    if (val === 'at' && !editJob.value.at) {
+      editJob.value.at = new Date(Date.now() + 30 * 60 * 1000)
+    }
+  },
+)
 
 function toUtcISO(date) {
   return date.toISOString()
@@ -70,7 +82,7 @@ onMounted(loadJobs)
 async function loadJobs() {
   try {
     jobs.value = await api.get('/scheduler/jobs')
-  } catch (e) {
+  } catch {
     toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to load jobs', life: 3000 })
   } finally {
     loading.value = false
@@ -206,23 +218,41 @@ function statusSeverity(status) {
       </DataTable>
     </div>
 
-    <Dialog v-model:visible="showCreateDialog" header="New Job" modal :style="{ width: '500px' }" :breakpoints="{ '768px': '95vw' }">
-      <DynamicForm :schema="jobSchema" v-model="newJob" />
+    <Dialog
+      v-model:visible="showCreateDialog"
+      header="New Job"
+      modal
+      :style="{ width: '500px' }"
+      :breakpoints="{ '768px': '95vw' }"
+    >
+      <DynamicForm v-model="newJob" :schema="jobSchema" />
       <div class="dialog-footer">
         <Button label="Cancel" severity="secondary" text @click="showCreateDialog = false" />
         <Button label="Create" icon="pi pi-check" @click="createJob" />
       </div>
     </Dialog>
 
-    <Dialog v-model:visible="showEditDialog" header="Edit Job" modal :style="{ width: '500px' }" :breakpoints="{ '768px': '95vw' }">
-      <DynamicForm :schema="jobSchema" v-model="editJob" />
+    <Dialog
+      v-model:visible="showEditDialog"
+      header="Edit Job"
+      modal
+      :style="{ width: '500px' }"
+      :breakpoints="{ '768px': '95vw' }"
+    >
+      <DynamicForm v-model="editJob" :schema="jobSchema" />
       <div class="dialog-footer">
         <Button label="Cancel" severity="secondary" text @click="showEditDialog = false" />
         <Button label="Save" icon="pi pi-save" @click="updateJob" />
       </div>
     </Dialog>
 
-    <Dialog v-model:visible="showDeleteConfirm" header="Confirm Delete" :modal="true" :style="{ width: '24rem' }" :breakpoints="{ '768px': '90vw' }">
+    <Dialog
+      v-model:visible="showDeleteConfirm"
+      header="Confirm Delete"
+      :modal="true"
+      :style="{ width: '24rem' }"
+      :breakpoints="{ '768px': '90vw' }"
+    >
       <p>Delete this scheduled job?</p>
       <template #footer>
         <Button label="Cancel" severity="secondary" text size="small" @click="showDeleteConfirm = false" />

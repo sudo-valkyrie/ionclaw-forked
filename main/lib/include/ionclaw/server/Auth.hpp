@@ -25,7 +25,7 @@ public:
     static bool isPublicPath(const std::string &path, const std::string &method = "GET");
 
 private:
-    mutable std::mutex mutex_;
+    mutable std::mutex mutex;
     std::string secret;
     std::string validUsername;
     std::string validPassword;

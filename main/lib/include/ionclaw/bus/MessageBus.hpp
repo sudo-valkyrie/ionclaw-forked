@@ -34,7 +34,6 @@ private:
     std::condition_variable inboundCv;
     std::condition_variable outboundCv;
 
-    // inbound message deduplication (TTL cache)
     static constexpr int DEDUP_TTL_SECONDS = 5;
     std::map<std::string, std::chrono::steady_clock::time_point> recentInbound;
     bool isDuplicate(const InboundMessage &msg);

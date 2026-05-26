@@ -51,14 +51,12 @@ const std::map<std::string, int> ContextWindow::MODEL_CONTEXT_LIMITS = {
     {"deepseek-chat", 64000},
 };
 
-// resolve context window limit for the given model
 int ContextWindow::getModelLimit(const std::string &model, const nlohmann::json &modelParams, int contextTokensCap)
 {
     int limit = DEFAULT_LIMIT;
 
     // explicit override from model params
-    if (modelParams.is_object() && modelParams.contains("context_window") &&
-        modelParams["context_window"].is_number())
+    if (modelParams.is_object() && modelParams.contains("context_window") && modelParams["context_window"].is_number())
     {
         limit = modelParams["context_window"].get<int>();
     }
@@ -90,7 +88,6 @@ int ContextWindow::getModelLimit(const std::string &model, const nlohmann::json 
     return limit;
 }
 
-// estimate token count from message character lengths
 int ContextWindow::estimateTokens(const std::vector<ionclaw::provider::Message> &messages)
 {
     int64_t totalChars = 0;
@@ -123,11 +120,9 @@ int ContextWindow::estimateTokens(const std::vector<ionclaw::provider::Message> 
     }
 
     // chars/4 is a conservative estimate, add 20% buffer
-    return static_cast<int>(std::min(static_cast<int64_t>(INT32_MAX),
-                                     static_cast<int64_t>((totalChars / 4.0) * 1.2)));
+    return static_cast<int>(std::min(static_cast<int64_t>(INT32_MAX), static_cast<int64_t>((totalChars / 4.0) * 1.2)));
 }
 
-// trim conversation to the most recent maxHistory messages
 std::vector<ionclaw::provider::Message> ContextWindow::trimHistory(const std::vector<ionclaw::provider::Message> &messages, int maxHistory)
 {
     if (maxHistory <= 0)
@@ -157,8 +152,7 @@ std::vector<ionclaw::provider::Message> ContextWindow::trimHistory(const std::ve
     }
 
     // keep last maxHistory messages
-    conversation = std::vector<ionclaw::provider::Message>(
-        conversation.end() - maxHistory, conversation.end());
+    conversation = std::vector<ionclaw::provider::Message>(conversation.end() - maxHistory, conversation.end());
 
     // skip orphaned tool results at the start
     while (!conversation.empty() && conversation.front().role == "tool")
@@ -174,7 +168,6 @@ std::vector<ionclaw::provider::Message> ContextWindow::trimHistory(const std::ve
     return result;
 }
 
-// check if estimated tokens exceed safety margin of model limit
 bool ContextWindow::needsCompaction(const std::vector<ionclaw::provider::Message> &messages, const std::string &model, const nlohmann::json &modelParams, int contextTokensCap)
 {
     auto limit = getModelLimit(model, modelParams, contextTokensCap);
@@ -182,12 +175,7 @@ bool ContextWindow::needsCompaction(const std::vector<ionclaw::provider::Message
     return estimated > static_cast<int>(limit * SAFETY_MARGIN);
 }
 
-// check if remaining context window is critically low
-ContextGuardResult ContextWindow::checkMinContext(
-    const std::vector<ionclaw::provider::Message> &messages,
-    const std::string &model,
-    const nlohmann::json &modelParams,
-    int contextTokensCap)
+ContextGuardResult ContextWindow::checkMinContext(const std::vector<ionclaw::provider::Message> &messages, const std::string &model, const nlohmann::json &modelParams, int contextTokensCap)
 {
     ContextGuardResult result;
     result.modelLimit = getModelLimit(model, modelParams, contextTokensCap);

@@ -17,10 +17,7 @@ namespace server
 namespace handler
 {
 
-WebSocketHandler::WebSocketHandler(
-    std::shared_ptr<Auth> auth,
-    std::shared_ptr<WebSocketManager> wsManager,
-    std::shared_ptr<Routes> routes)
+WebSocketHandler::WebSocketHandler(std::shared_ptr<Auth> auth, std::shared_ptr<WebSocketManager> wsManager, std::shared_ptr<Routes> routes)
     : auth(auth)
     , wsManager(wsManager)
     , routes(routes)
@@ -73,8 +70,7 @@ void WebSocketHandler::handleRequest(Poco::Net::HTTPServerRequest &req, Poco::Ne
 
                 if (received <= 0 || (flags & Poco::Net::WebSocket::FRAME_OP_BITMASK) == Poco::Net::WebSocket::FRAME_OP_CLOSE)
                 {
-                    spdlog::info("[WebSocket] Connection {} closed (received={}, opcode={})",
-                                 connectionId, received, flags & Poco::Net::WebSocket::FRAME_OP_BITMASK);
+                    spdlog::info("[WebSocketHandler] Connection {} closed (received={}, opcode={})", connectionId, received, flags & Poco::Net::WebSocket::FRAME_OP_BITMASK);
                     break;
                 }
 
@@ -90,13 +86,12 @@ void WebSocketHandler::handleRequest(Poco::Net::HTTPServerRequest &req, Poco::Ne
                         nlohmann::json pong = {{"type", "pong"}};
                         auto pongStr = pong.dump();
                         std::lock_guard<std::mutex> lock(conn->sendMutex);
-                        conn->socket.sendFrame(pongStr.data(), static_cast<int>(pongStr.size()),
-                                               Poco::Net::WebSocket::FRAME_TEXT);
+                        conn->socket.sendFrame(pongStr.data(), static_cast<int>(pongStr.size()), Poco::Net::WebSocket::FRAME_TEXT);
                     }
                 }
                 catch (const nlohmann::json::exception &e)
                 {
-                    spdlog::warn("[WebSocket] Invalid message JSON ({}): {}", connectionId, e.what());
+                    spdlog::warn("[WebSocketHandler] Invalid message JSON ({}): {}", connectionId, e.what());
                 }
             }
             catch (const Poco::TimeoutException &)
@@ -105,7 +100,7 @@ void WebSocketHandler::handleRequest(Poco::Net::HTTPServerRequest &req, Poco::Ne
             }
             catch (const std::exception &e)
             {
-                spdlog::warn("[WebSocket] Receive error ({}): {}", connectionId, e.what());
+                spdlog::warn("[WebSocketHandler] Receive error ({}): {}", connectionId, e.what());
                 break;
             }
         }
@@ -115,7 +110,7 @@ void WebSocketHandler::handleRequest(Poco::Net::HTTPServerRequest &req, Poco::Ne
     }
     catch (const std::exception &e)
     {
-        spdlog::error("[WebSocket] Handler error: {}", e.what());
+        spdlog::error("[WebSocketHandler] Handler error: {}", e.what());
 
         if (!connectionId.empty())
         {

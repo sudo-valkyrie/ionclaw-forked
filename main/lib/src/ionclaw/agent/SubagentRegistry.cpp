@@ -104,14 +104,7 @@ SubagentRegistry::SubagentRegistry(const std::string &workspacePath)
     filePath = dir + "/subagent-runs.json";
 }
 
-SubagentRunRecord SubagentRegistry::spawn(
-    const std::string &requesterSessionKey,
-    const std::string &task,
-    const std::string &childSessionKey,
-    const std::string &model,
-    const std::string &thinkingLevel,
-    int parentDepth,
-    int timeoutSeconds)
+SubagentRunRecord SubagentRegistry::spawn(const std::string &requesterSessionKey, const std::string &task, const std::string &childSessionKey, const std::string &model, const std::string &thinkingLevel, int parentDepth, int timeoutSeconds)
 {
     std::lock_guard<std::mutex> lock(mutex);
 
@@ -133,8 +126,7 @@ SubagentRunRecord SubagentRegistry::spawn(
 
     save();
 
-    spdlog::info("[SubagentRegistry] Spawned run {} (depth {}, child session {})",
-                 record.runId, record.depth, childSessionKey);
+    spdlog::info("[SubagentRegistry] Spawned run {} (depth {}, child session {})", record.runId, record.depth, childSessionKey);
 
     return record;
 }
@@ -160,8 +152,7 @@ void SubagentRegistry::updateStatus(const std::string &runId, SubagentStatus sta
         if (outcome.size() > MAX_FROZEN_RESULT_BYTES)
         {
             it->second.outcome = util::StringHelper::utf8SafeTruncate(outcome, MAX_FROZEN_RESULT_BYTES) + "\n[result truncated at 100KB]";
-            spdlog::info("[SubagentRegistry] Capped frozen result for run {} ({}B -> {}B)",
-                         runId, outcome.size(), MAX_FROZEN_RESULT_BYTES);
+            spdlog::info("[SubagentRegistry] Capped frozen result for run {} ({}B -> {}B)", runId, outcome.size(), MAX_FROZEN_RESULT_BYTES);
         }
         else
         {
@@ -190,8 +181,7 @@ void SubagentRegistry::updateProgress(const std::string &runId, const std::strin
         // utf-8 safe tail extraction: skip continuation bytes at start of tail
         auto tailStart = output.size() - MAX_PROGRESS_CHARS;
 
-        while (tailStart < output.size() &&
-               (static_cast<unsigned char>(output[tailStart]) & 0xC0) == 0x80)
+        while (tailStart < output.size() && (static_cast<unsigned char>(output[tailStart]) & 0xC0) == 0x80)
         {
             tailStart++;
         }
@@ -245,8 +235,7 @@ int SubagentRegistry::getActiveChildCount(const std::string &requesterSessionKey
 
     for (const auto &[id, record] : records)
     {
-        if (record.requesterSessionKey == requesterSessionKey &&
-            (record.status == SubagentStatus::Pending || record.status == SubagentStatus::Active))
+        if (record.requesterSessionKey == requesterSessionKey && (record.status == SubagentStatus::Pending || record.status == SubagentStatus::Active))
         {
             count++;
         }
@@ -282,8 +271,7 @@ bool SubagentRegistry::allChildrenTerminal(const std::string &requesterSessionKe
 
     for (const auto &[id, record] : records)
     {
-        if (record.requesterSessionKey == requesterSessionKey &&
-            (record.status == SubagentStatus::Pending || record.status == SubagentStatus::Active))
+        if (record.requesterSessionKey == requesterSessionKey && (record.status == SubagentStatus::Pending || record.status == SubagentStatus::Active))
         {
             return false;
         }
@@ -330,8 +318,7 @@ int SubagentRegistry::killRun(const std::string &runId, bool cascade)
 
             for (auto &[id, record] : records)
             {
-                if (record.requesterSessionKey == currentSession &&
-                    (record.status == SubagentStatus::Pending || record.status == SubagentStatus::Active))
+                if (record.requesterSessionKey == currentSession && (record.status == SubagentStatus::Pending || record.status == SubagentStatus::Active))
                 {
                     record.status = SubagentStatus::Killed;
                     record.outcome = "Killed by ancestor cascade";

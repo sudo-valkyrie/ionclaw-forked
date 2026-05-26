@@ -14,10 +14,12 @@ std::string PlatformBridge::platformName()
 }
 
 PlatformBridge::PlatformBridge()
-    : handler([](const std::string &function, const nlohmann::json & /*params*/) -> std::string
-              {
-                  spdlog::debug("[PlatformBridge] Function '{}' not implemented on {}", function, platformName());
-                  return "Error: '" + function + "' is not implemented on " + platformName() + "."; })
+    // clang-format off
+    : handler([](const std::string &function, const nlohmann::json & /*params*/) -> std::string {
+        spdlog::debug("[PlatformBridge] Function '{}' not implemented on {}", function, platformName());
+        return "Error: '" + function + "' is not implemented on " + platformName() + ".";
+    })
+// clang-format on
 {
 }
 

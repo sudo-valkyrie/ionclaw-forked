@@ -11,7 +11,6 @@
 namespace ionclaw
 {
 
-// forward declarations to avoid circular includes
 namespace config
 {
 struct Config;
@@ -56,12 +55,10 @@ struct ToolSchema
     nlohmann::json toOpenAiFormat() const;
 };
 
-// structured tool result: text + optional media blocks (images, audio, etc.)
-// implicitly constructible from std::string for convenience (tools can return plain strings)
 struct ToolResult
 {
     std::string text;
-    nlohmann::json media; // null or array of {type, media_type, data}
+    nlohmann::json media;
 
     ToolResult() = default;
     ToolResult(const std::string &s)
@@ -105,9 +102,6 @@ public:
     virtual ~Tool() = default;
     virtual ToolResult execute(const nlohmann::json &params, const ToolContext &context) = 0;
     virtual ToolSchema schema() const = 0;
-
-    // returns the set of OS names this tool supports (e.g. {"linux", "macos", "windows"}).
-    // empty set means all platforms.
     virtual std::set<std::string> supportedPlatforms() const;
 };
 

@@ -34,7 +34,6 @@ void Routes::handleMarketplaceTargets(Poco::Net::HTTPServerRequest &, Poco::Net:
     sendJson(resp, arr);
 }
 
-// validate marketplace path segments contain only safe characters
 bool Routes::isValidMarketplaceSegment(const std::string &s)
 {
     if (s.empty())
@@ -54,8 +53,7 @@ bool Routes::isValidMarketplaceSegment(const std::string &s)
     return s[0] != '.' && s.find("..") == std::string::npos;
 }
 
-void Routes::handleMarketplaceCheck(Poco::Net::HTTPServerRequest &req, Poco::Net::HTTPServerResponse &resp,
-                                    const std::string &source, const std::string &name)
+void Routes::handleMarketplaceCheck(Poco::Net::HTTPServerRequest &req, Poco::Net::HTTPServerResponse &resp, const std::string &source, const std::string &name)
 {
     if (!isValidMarketplaceSegment(source) || !isValidMarketplaceSegment(name))
     {
@@ -231,7 +229,7 @@ void Routes::handleMarketplaceInstall(Poco::Net::HTTPServerRequest &req, Poco::N
 
                 if (resolvedOutput.rfind(resolvedTarget, 0) != 0)
                 {
-                    spdlog::warn("[Marketplace] Zip entry escapes target dir: {}", entryName);
+                    spdlog::warn("[Routes] Zip entry escapes target dir: {}", entryName);
                     continue;
                 }
 

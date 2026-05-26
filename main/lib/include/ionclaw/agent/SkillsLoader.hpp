@@ -18,10 +18,10 @@ struct SkillInfo
     std::string description;
     bool available = true;
     bool always = false;
-    std::string source; // "builtin", "project", "workspace"
+    std::string source;
     std::string publisher;
     std::string location;
-    std::string agent; // agent name that owns this workspace skill (empty for builtin/project)
+    std::string agent;
 };
 
 class SkillsLoader
@@ -37,8 +37,6 @@ public:
 
     std::vector<std::pair<std::string, std::string>> getAlwaysSkills() const;
     std::string buildSkillsSummary() const;
-
-    // skill discovery (name → file path)
     std::map<std::string, std::string> discoverSkills() const;
 
 private:
@@ -46,13 +44,11 @@ private:
     std::string projectSkillsDir;
     std::string workspaceSkillsDir;
 
-    // skill discovery constants
     static const std::string SKILL_FILENAME;
     static std::pair<nlohmann::json, std::string> parseFrontmatter(const std::string &content);
     std::string resolveSource(const std::string &path) const;
     void scanSkillsDir(const std::string &base, std::map<std::string, std::string> &skills) const;
 
-    // platform and content helpers
     static bool matchesPlatform(const nlohmann::json &metadata);
     static std::string readSkillContent(const std::string &path);
 };

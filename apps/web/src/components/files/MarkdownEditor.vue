@@ -15,9 +15,12 @@ const editContent = ref(props.content)
 const editing = ref(false)
 const isDark = useDark()
 
-watch(() => props.content, (val) => {
-  editContent.value = val
-})
+watch(
+  () => props.content,
+  (val) => {
+    editContent.value = val
+  },
+)
 
 function save() {
   emit('save', editContent.value)
@@ -45,23 +48,44 @@ function save() {
       v-if="editing"
       v-model="editContent"
       :theme="isDark ? 'dark' : 'light'"
-      codeTheme="github"
-      :codeStyleReverse="false"
+      code-theme="github"
+      :code-style-reverse="false"
       language="en-US"
       :preview="false"
-      :toolbars="['bold', 'underline', 'italic', 'strikeThrough', '-',
-        'title', 'sub', 'sup', 'quote', 'unorderedList', 'orderedList', 'task', '-',
-        'codeRow', 'code', 'link', 'image', 'table', '-',
-        'revoke', 'next', '=',
-        'preview', 'fullscreen']"
+      :toolbars="[
+        'bold',
+        'underline',
+        'italic',
+        'strikeThrough',
+        '-',
+        'title',
+        'sub',
+        'sup',
+        'quote',
+        'unorderedList',
+        'orderedList',
+        'task',
+        '-',
+        'codeRow',
+        'code',
+        'link',
+        'image',
+        'table',
+        '-',
+        'revoke',
+        'next',
+        '=',
+        'preview',
+        'fullscreen',
+      ]"
       class="md-editor-fill"
     />
     <MdPreview
       v-else
-      :modelValue="editContent"
+      :model-value="editContent"
       :theme="isDark ? 'dark' : 'light'"
-      codeTheme="github"
-      :codeStyleReverse="false"
+      code-theme="github"
+      :code-style-reverse="false"
       language="en-US"
       class="md-preview-fill"
     />

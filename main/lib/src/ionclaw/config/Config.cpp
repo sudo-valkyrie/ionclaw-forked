@@ -49,11 +49,13 @@ std::string Config::resolveBaseUrl(const std::string &providerName) const
     {
         return "https://api.anthropic.com";
     }
-    else if (providerName == "openai")
+
+    if (providerName == "openai")
     {
         return "https://api.openai.com";
     }
-    else if (providerName == "google" || providerName == "gemini")
+
+    if (providerName == "google" || providerName == "gemini")
     {
         return "https://generativelanguage.googleapis.com/v1beta/openai";
     }
@@ -93,7 +95,7 @@ ProviderConfig Config::resolveProvider(const std::string &model) const
         }
     }
 
-    throw std::runtime_error("No provider found for model: " + model);
+    throw std::runtime_error("[Config] No provider found for model: " + model);
 }
 
 } // namespace config

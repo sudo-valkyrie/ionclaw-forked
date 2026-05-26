@@ -34,7 +34,6 @@ const char *ContextBuilder::RESPONSE_GUIDELINES =
 
 const std::vector<std::string> ContextBuilder::BOOTSTRAP_FILES = {"AGENTS.md", "SOUL.md", "USER.md", "TOOLS.md"};
 
-// return channel-specific formatting guidance
 std::string ContextBuilder::getChannelGuidance(const std::string &channel)
 {
     if (channel == "telegram")
@@ -59,7 +58,6 @@ std::string ContextBuilder::getChannelGuidance(const std::string &channel)
     return "Channel: web. Use Markdown formatting freely including images, code blocks, and tables.";
 }
 
-// extract plain text from string or content blocks array
 std::string ContextBuilder::contentToText(const nlohmann::json &content)
 {
     if (content.is_string())
@@ -98,19 +96,10 @@ std::string ContextBuilder::contentToText(const nlohmann::json &content)
     return "";
 }
 
-ContextBuilder::ContextBuilder(
-    const ionclaw::config::Config &config,
-    const std::string &workspacePath,
-    std::shared_ptr<MemoryStore> memory,
-    std::shared_ptr<SkillsLoader> skillsLoader)
-    : config(config)
-    , workspacePath(workspacePath)
-    , memory(std::move(memory))
-    , skillsLoader(std::move(skillsLoader))
+ContextBuilder::ContextBuilder(const ionclaw::config::Config &config, const std::string &workspacePath, std::shared_ptr<MemoryStore> memory, std::shared_ptr<SkillsLoader> skillsLoader) : config(config) , workspacePath(workspacePath) , memory(std::move(memory)) , skillsLoader(std::move(skillsLoader))
 {
 }
 
-// build directory layout context for the system prompt
 std::string ContextBuilder::buildDirectoryContext() const
 {
     std::ostringstream lines;
@@ -140,15 +129,7 @@ std::string ContextBuilder::buildDirectoryContext() const
     return lines.str();
 }
 
-// assemble system prompt from all context sources (mode controls which sections to include)
-std::string ContextBuilder::buildSystemPrompt(
-    const std::string &agentName,
-    const std::string &agentInstructions,
-    const std::string &channel,
-    const std::vector<std::string> &toolNames,
-    const std::map<std::string, std::string> &toolDescriptions,
-    PromptMode mode,
-    const std::string &userLanguage) const
+std::string ContextBuilder::buildSystemPrompt(const std::string &agentName, const std::string &agentInstructions, const std::string &channel, const std::vector<std::string> &toolNames, const std::map<std::string, std::string> &toolDescriptions, PromptMode mode, const std::string &userLanguage) const
 {
     std::ostringstream prompt;
     bool full = (mode == PromptMode::Full);
@@ -313,8 +294,7 @@ std::string ContextBuilder::buildSystemPrompt(
                     auto tailStart = content.size() - safeTailSize;
 
                     // advance past any utf-8 continuation bytes to avoid splitting a multi-byte sequence
-                    while (tailStart < content.size() &&
-                           (static_cast<unsigned char>(content[tailStart]) & 0xC0) == 0x80)
+                    while (tailStart < content.size() && (static_cast<unsigned char>(content[tailStart]) & 0xC0) == 0x80)
                     {
                         tailStart++;
                     }
@@ -440,7 +420,6 @@ std::string ContextBuilder::buildSystemPrompt(
     return prompt.str();
 }
 
-// build media annotation text from session media paths
 std::string ContextBuilder::buildMediaAnnotation(const std::vector<nlohmann::json> &media)
 {
     if (media.empty())
@@ -509,13 +488,7 @@ std::string ContextBuilder::buildMediaAnnotation(const std::vector<nlohmann::jso
     return annotation;
 }
 
-// build provider messages from session history and current user input
-std::vector<ionclaw::provider::Message> ContextBuilder::buildMessages(
-    const std::string &systemPrompt,
-    const std::vector<ionclaw::session::SessionMessage> &history,
-    const std::string &userContent,
-    const nlohmann::json &mediaBlocks,
-    const std::map<int, nlohmann::json> &historyMediaBlocks)
+std::vector<ionclaw::provider::Message> ContextBuilder::buildMessages(const std::string &systemPrompt, const std::vector<ionclaw::session::SessionMessage> &history, const std::string &userContent, const nlohmann::json &mediaBlocks, const std::map<int, nlohmann::json> &historyMediaBlocks)
 {
     std::vector<ionclaw::provider::Message> messages;
 
@@ -644,13 +617,7 @@ std::vector<ionclaw::provider::Message> ContextBuilder::buildMessages(
 }
 
 // append a tool result message to the conversation
-// media: optional JSON array of {type, media_type, data} blocks from ToolResult
-void ContextBuilder::addToolResult(
-    std::vector<ionclaw::provider::Message> &messages,
-    const std::string &toolCallId,
-    const std::string &toolName,
-    const std::string &result,
-    const nlohmann::json &media)
+void ContextBuilder::addToolResult(std::vector<ionclaw::provider::Message> &messages, const std::string &toolCallId, const std::string &toolName, const std::string &result, const nlohmann::json &media)
 {
     ionclaw::provider::Message msg;
     msg.role = "tool";
@@ -680,12 +647,7 @@ void ContextBuilder::addToolResult(
     messages.push_back(msg);
 }
 
-// append an assistant message with optional tool calls and reasoning
-void ContextBuilder::addAssistantMessage(
-    std::vector<ionclaw::provider::Message> &messages,
-    const std::string &content,
-    const std::vector<ionclaw::provider::ToolCall> &toolCalls,
-    const std::string &reasoningContent)
+void ContextBuilder::addAssistantMessage(std::vector<ionclaw::provider::Message> &messages, const std::string &content, const std::vector<ionclaw::provider::ToolCall> &toolCalls, const std::string &reasoningContent)
 {
     ionclaw::provider::Message msg;
     msg.role = "assistant";
@@ -786,10 +748,7 @@ bool hasImportantTail(const std::string &content, size_t scanBytes = 2000)
 
 } // anonymous namespace
 
-// cap oversized tool results to fit within total character budget
-void ContextBuilder::enforceToolResultBudget(
-    std::vector<ionclaw::provider::Message> &messages,
-    int maxTotalChars)
+void ContextBuilder::enforceToolResultBudget(std::vector<ionclaw::provider::Message> &messages, int maxTotalChars)
 {
     // phase 1: cap any single tool result exceeding 50% of total context budget
     auto singleResultCap = std::max(400, maxTotalChars / 2);
@@ -812,8 +771,7 @@ void ContextBuilder::enforceToolResultBudget(
             // utf-8 safe tail extraction: skip continuation bytes at start
             auto tailStart = msg.content.size() - safeTailBudget;
 
-            while (tailStart < msg.content.size() &&
-                   (static_cast<unsigned char>(msg.content[tailStart]) & 0xC0) == 0x80)
+            while (tailStart < msg.content.size() && (static_cast<unsigned char>(msg.content[tailStart]) & 0xC0) == 0x80)
             {
                 tailStart++;
             }
@@ -881,8 +839,7 @@ void ContextBuilder::enforceToolResultBudget(
             // utf-8 safe tail extraction: skip continuation bytes at start
             auto tailStart = msg.content.size() - safeTailSize;
 
-            while (tailStart < msg.content.size() &&
-                   (static_cast<unsigned char>(msg.content[tailStart]) & 0xC0) == 0x80)
+            while (tailStart < msg.content.size() && (static_cast<unsigned char>(msg.content[tailStart]) & 0xC0) == 0x80)
             {
                 tailStart++;
             }
@@ -894,11 +851,9 @@ void ContextBuilder::enforceToolResultBudget(
         }
     }
 
-    spdlog::info("[ContextBuilder] Enforced tool result budget: {}→{} chars across {} results",
-                 totalToolChars, maxTotalChars, toolResultCount);
+    spdlog::info("[ContextBuilder] Enforced tool result budget: {}→{} chars across {} results", totalToolChars, maxTotalChars, toolResultCount);
 }
 
-// strip thinking/reasoning content from all history messages except the most recent assistant
 void ContextBuilder::stripThinkingFromHistory(std::vector<ionclaw::provider::Message> &messages)
 {
     // find the last assistant message index
@@ -922,7 +877,6 @@ void ContextBuilder::stripThinkingFromHistory(std::vector<ionclaw::provider::Mes
     }
 }
 
-// replace image content blocks with text markers in older messages
 void ContextBuilder::pruneHistoryImages(std::vector<ionclaw::provider::Message> &messages, int keepRecent)
 {
     // count user messages from the end to determine which ones are "recent"
@@ -978,7 +932,6 @@ void ContextBuilder::pruneHistoryImages(std::vector<ionclaw::provider::Message> 
 // repair tool use / result pairing after history trimming:
 // - insert synthetic error results for tool calls with no matching result
 // - drop duplicate tool results (same tool_call_id)
-// - drop orphaned tool results with no matching tool call
 void ContextBuilder::repairToolUseResultPairing(std::vector<ionclaw::provider::Message> &messages)
 {
     // collect all tool call IDs from assistant messages
@@ -1077,7 +1030,6 @@ void ContextBuilder::repairToolUseResultPairing(std::vector<ionclaw::provider::M
     messages = std::move(finalMessages);
 }
 
-// read a file from the project directory
 std::string ContextBuilder::readProjectFile(const std::string &filename) const
 {
     if (config.projectPath.empty())

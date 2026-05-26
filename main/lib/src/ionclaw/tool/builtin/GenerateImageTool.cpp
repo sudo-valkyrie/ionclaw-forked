@@ -32,7 +32,6 @@ const std::set<std::string> GenerateImageTool::VALID_ASPECT_RATIOS = {
 // valid resolution sizes
 const std::set<std::string> GenerateImageTool::VALID_SIZES = {"1K", "2K", "4K"};
 
-// execute image generation
 ToolResult GenerateImageTool::execute(const nlohmann::json &params, const ToolContext &context)
 {
     if (!params.contains("prompt") || !params["prompt"].is_string() || params["prompt"].get<std::string>().empty())
@@ -139,8 +138,7 @@ ToolResult GenerateImageTool::execute(const nlohmann::json &params, const ToolCo
 
     if (!generator)
     {
-        auto msg = "No image generator available for provider '" + providerConfig.name +
-                   "'. Supported: gemini, google, openai, grok.";
+        auto msg = "No image generator available for provider '" + providerConfig.name + "'. Supported: gemini, google, openai, grok.";
         broadcastWarning(msg);
         return "Error: " + msg;
     }
@@ -150,8 +148,7 @@ ToolResult GenerateImageTool::execute(const nlohmann::json &params, const ToolCo
 
     if (apiKey.empty())
     {
-        auto msg = "API key not found for image provider '" + providerConfig.name +
-                   "'. Check credentials." + providerConfig.credential + ".key in Settings.";
+        auto msg = "API key not found for image provider '" + providerConfig.name + "'. Check credentials." + providerConfig.credential + ".key in Settings.";
         broadcastWarning(msg);
         return "Error: " + msg;
     }
@@ -180,7 +177,6 @@ ToolResult GenerateImageTool::execute(const nlohmann::json &params, const ToolCo
     }
 }
 
-// schema definition
 ToolSchema GenerateImageTool::schema() const
 {
     return {

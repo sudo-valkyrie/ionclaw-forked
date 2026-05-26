@@ -14,7 +14,6 @@ namespace ionclaw
 namespace server
 {
 
-// static members
 std::shared_ptr<ionclaw::config::Config> ServerInstance::config;
 std::shared_ptr<ionclaw::bus::EventDispatcher> ServerInstance::dispatcher;
 std::shared_ptr<ionclaw::bus::MessageBus> ServerInstance::bus;
@@ -44,9 +43,7 @@ ServerResult ServerInstance::start(const std::string &projectPath, const std::st
     try
     {
         // resolve project path
-        auto resolvedPath = (!projectPath.empty())
-                                ? projectPath
-                                : std::filesystem::current_path().string();
+        auto resolvedPath = (!projectPath.empty()) ? projectPath : std::filesystem::current_path().string();
 
         resolvedPath = std::filesystem::absolute(resolvedPath).string();
 
@@ -55,7 +52,7 @@ ServerResult ServerInstance::start(const std::string &projectPath, const std::st
             return {"", 0, false, "project path does not exist: " + resolvedPath};
         }
 
-        spdlog::info("Project path: {}", resolvedPath);
+        spdlog::info("[ServerInstance] Project path: {}", resolvedPath);
 
         auto configPath = resolvedPath + "/config.yml";
 
@@ -65,7 +62,7 @@ ServerResult ServerInstance::start(const std::string &projectPath, const std::st
         }
 
         // load configuration
-        spdlog::info("Loading config from: {}", configPath);
+        spdlog::info("[ServerInstance] Loading config from: {}", configPath);
         auto cfg = ionclaw::config::ConfigLoader::load(configPath);
         cfg.projectPath = resolvedPath;
 
@@ -93,7 +90,7 @@ ServerResult ServerInstance::start(const std::string &projectPath, const std::st
             cfg.credentials[serverCredName] = serverCred;
             cfg.server.credential = serverCredName;
             defaultsCreated = true;
-            spdlog::info("Generated default server credential (JWT secret)");
+            spdlog::info("[ServerInstance] Generated default server credential (JWT secret)");
         }
 
         auto webCredName = cfg.webClient.credential.empty() ? std::string("web_client") : cfg.webClient.credential;
@@ -107,13 +104,13 @@ ServerResult ServerInstance::start(const std::string &projectPath, const std::st
             cfg.credentials[webCredName] = webCred;
             cfg.webClient.credential = webCredName;
             defaultsCreated = true;
-            spdlog::info("Generated default web client credential (admin/admin)");
+            spdlog::info("[ServerInstance] Generated default web client credential (admin/admin)");
         }
 
         if (defaultsCreated)
         {
             ionclaw::config::ConfigLoader::save(cfg, configPath);
-            spdlog::info("Default credentials saved to config.yml");
+            spdlog::info("[ServerInstance] Default credentials saved to config.yml");
         }
 
         // apply host and port overrides
@@ -139,8 +136,7 @@ ServerResult ServerInstance::start(const std::string &projectPath, const std::st
         // create core components
         dispatcher = std::make_shared<ionclaw::bus::EventDispatcher>();
         bus = std::make_shared<ionclaw::bus::MessageBus>();
-        sessionManager = std::make_shared<ionclaw::session::SessionManager>(
-            defaultWorkspace + "/sessions", cfg.sessionBudget.maxDiskBytes, cfg.sessionBudget.highWaterRatio);
+        sessionManager = std::make_shared<ionclaw::session::SessionManager>(defaultWorkspace + "/sessions", cfg.sessionBudget.maxDiskBytes, cfg.sessionBudget.highWaterRatio);
         taskManager = std::make_shared<ionclaw::task::TaskManager>(defaultWorkspace + "/tasks.jsonl", dispatcher);
         toolRegistry = std::make_shared<ionclaw::tool::ToolRegistry>();
         wsManager = std::make_shared<WebSocketManager>();
@@ -152,12 +148,12 @@ ServerResult ServerInstance::start(const std::string &projectPath, const std::st
 
         // connect event dispatcher to websocket
         auto wsRef = wsManager;
-        dispatcher->addHandler([wsRef](const std::string &eventType, const nlohmann::json &data)
-                               { wsRef->broadcast(eventType, data); });
+        // clang-format off
+        dispatcher->addHandler([wsRef](const std::string &eventType, const nlohmann::json &data) { wsRef->broadcast(eventType, data); });
+        // clang-format on
 
         // create orchestrator
-        orchestrator = std::make_shared<ionclaw::agent::Orchestrator>(
-            bus, dispatcher, sessionManager, taskManager, toolRegistry, cfg);
+        orchestrator = std::make_shared<ionclaw::agent::Orchestrator>(bus, dispatcher, sessionManager, taskManager, toolRegistry, cfg);
 
         // resolve web directory
         std::string webDir;
@@ -177,7 +173,7 @@ ServerResult ServerInstance::start(const std::string &projectPath, const std::st
         if (webDir.empty() && ionclaw::util::EmbeddedResources::hasWebResources())
         {
             ionclaw::util::EmbeddedResources::loadWebResources();
-            spdlog::info("Serving web client from embedded resources");
+            spdlog::info("[ServerInstance] Serving web client from embedded resources");
             // webDir stays empty → signals embedded mode to WebAppHandler
         }
 
@@ -196,25 +192,23 @@ ServerResult ServerInstance::start(const std::string &projectPath, const std::st
 
             if (webDir.empty())
             {
-                spdlog::warn("Web client not found, static file serving disabled");
+                spdlog::warn("[ServerInstance] Web client not found, static file serving disabled");
             }
             else
             {
-                spdlog::info("Serving web client from: {}", webDir);
+                spdlog::info("[ServerInstance] Serving web client from: {}", webDir);
             }
         }
 
         // public directory for static file serving
         auto publicDir = resolvedPath + "/public";
-        spdlog::info("Serving public files from: {}", publicDir);
+        spdlog::info("[ServerInstance] Serving public files from: {}", publicDir);
 
         // create MCP dispatcher
-        mcpDispatcher = std::make_shared<ionclaw::mcp::McpDispatcher>(
-            orchestrator, sessionManager, taskManager, bus, dispatcher, config);
+        mcpDispatcher = std::make_shared<ionclaw::mcp::McpDispatcher>(orchestrator, sessionManager, taskManager, bus, dispatcher, config);
 
         // create channel manager and start channels
-        channelManager = std::make_shared<ionclaw::channel::ChannelManager>(
-            config, bus, sessionManager, taskManager, dispatcher, mcpDispatcher);
+        channelManager = std::make_shared<ionclaw::channel::ChannelManager>(config, bus, sessionManager, taskManager, dispatcher, mcpDispatcher);
 
         for (auto &[name, ch] : config->channels)
         {
@@ -227,14 +221,13 @@ ServerResult ServerInstance::start(const std::string &projectPath, const std::st
                 }
                 catch (const std::exception &e)
                 {
-                    spdlog::warn("[Server] Failed to start channel '{}': {}", name, e.what());
+                    spdlog::warn("[ServerInstance] Failed to start channel '{}': {}", name, e.what());
                 }
             }
         }
 
         // create and start heartbeat service
-        heartbeatService = std::make_shared<ionclaw::heartbeat::HeartbeatService>(
-            bus, sessionManager, defaultWorkspace, cfg.heartbeat.interval, cfg.heartbeat.enabled, cfg.heartbeat.agent);
+        heartbeatService = std::make_shared<ionclaw::heartbeat::HeartbeatService>(bus, sessionManager, defaultWorkspace, cfg.heartbeat.interval, cfg.heartbeat.enabled, cfg.heartbeat.agent);
         heartbeatService->start();
 
         // create and start cron service
@@ -245,22 +238,19 @@ ServerResult ServerInstance::start(const std::string &projectPath, const std::st
         orchestrator->setCronService(cronService);
 
         // create routes and http server
-        routes = std::make_shared<Routes>(
-            config, auth, orchestrator, channelManager, heartbeatService, cronService, sessionManager, taskManager,
-            bus, dispatcher, wsManager, webDir, resolvedPath, publicDir, defaultWorkspace);
+        routes = std::make_shared<Routes>(config, auth, orchestrator, channelManager, heartbeatService, cronService, sessionManager, taskManager, bus, dispatcher, wsManager, webDir, resolvedPath, publicDir, defaultWorkspace);
 
-        httpServer = std::make_shared<HttpServer>(
-            routes, auth, wsManager, mcpDispatcher, cfg.server, webDir, publicDir);
+        httpServer = std::make_shared<HttpServer>(routes, auth, wsManager, mcpDispatcher, cfg.server, webDir, publicDir);
 
         // start services
         orchestrator->start();
-        spdlog::info("Orchestrator started");
+        spdlog::info("[ServerInstance] Orchestrator started");
 
         httpServer->start();
 
         auto actualPort = httpServer->port();
 
-        spdlog::info("Server listening on {}:{}", cfg.server.host, actualPort);
+        spdlog::info("[ServerInstance] Server listening on {}:{}", cfg.server.host, actualPort);
 
         // use localhost for display when binding to all interfaces
         auto displayHost = (cfg.server.host == "0.0.0.0") ? "localhost" : cfg.server.host;
@@ -269,7 +259,7 @@ ServerResult ServerInstance::start(const std::string &projectPath, const std::st
     }
     catch (const std::exception &e)
     {
-        spdlog::error("Failed to start server: {}", e.what());
+        spdlog::error("[ServerInstance] Failed to start server: {}", e.what());
 
         // stop services that may have been started before the failure
         if (orchestrator)
@@ -347,10 +337,10 @@ ServerResult ServerInstance::stop()
         heartbeatService->stop();
         cronService->stop();
         orchestrator->stop();
-        spdlog::info("Orchestrator stopped");
+        spdlog::info("[ServerInstance] Orchestrator stopped");
 
         taskManager->save();
-        spdlog::info("Tasks saved");
+        spdlog::info("[ServerInstance] Tasks saved");
 
         resetComponents();
 
@@ -358,7 +348,7 @@ ServerResult ServerInstance::stop()
     }
     catch (const std::exception &e)
     {
-        spdlog::error("Failed to stop server: {}", e.what());
+        spdlog::error("[ServerInstance] Failed to stop server: {}", e.what());
 
         // force release all components to avoid stuck state
         resetComponents();

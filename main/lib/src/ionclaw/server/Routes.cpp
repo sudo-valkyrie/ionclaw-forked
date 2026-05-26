@@ -13,22 +13,7 @@ namespace server
 
 namespace fs = std::filesystem;
 
-Routes::Routes(
-    std::shared_ptr<ionclaw::config::Config> config,
-    std::shared_ptr<Auth> auth,
-    std::shared_ptr<ionclaw::agent::Orchestrator> orchestrator,
-    std::shared_ptr<ionclaw::channel::ChannelManager> channelManager,
-    std::shared_ptr<ionclaw::heartbeat::HeartbeatService> heartbeatService,
-    std::shared_ptr<ionclaw::cron::CronService> cronService,
-    std::shared_ptr<ionclaw::session::SessionManager> sessionManager,
-    std::shared_ptr<ionclaw::task::TaskManager> taskManager,
-    std::shared_ptr<ionclaw::bus::MessageBus> bus,
-    std::shared_ptr<ionclaw::bus::EventDispatcher> dispatcher,
-    std::shared_ptr<WebSocketManager> wsManager,
-    const std::string &webDir,
-    const std::string &projectRoot,
-    const std::string &publicDir,
-    const std::string &workspaceDir)
+Routes::Routes(std::shared_ptr<ionclaw::config::Config> config, std::shared_ptr<Auth> auth, std::shared_ptr<ionclaw::agent::Orchestrator> orchestrator, std::shared_ptr<ionclaw::channel::ChannelManager> channelManager, std::shared_ptr<ionclaw::heartbeat::HeartbeatService> heartbeatService, std::shared_ptr<ionclaw::cron::CronService> cronService, std::shared_ptr<ionclaw::session::SessionManager> sessionManager, std::shared_ptr<ionclaw::task::TaskManager> taskManager, std::shared_ptr<ionclaw::bus::MessageBus> bus, std::shared_ptr<ionclaw::bus::EventDispatcher> dispatcher, std::shared_ptr<WebSocketManager> wsManager, const std::string &webDir, const std::string &projectRoot, const std::string &publicDir, const std::string &workspaceDir)
     : config(std::move(config))
     , auth(std::move(auth))
     , orchestrator(std::move(orchestrator))
@@ -85,14 +70,13 @@ std::string Routes::readBody(Poco::Net::HTTPServerRequest &req)
 
         if (body.size() > MAX_BODY_BYTES)
         {
-            throw std::runtime_error("Request body exceeds maximum allowed size");
+            throw std::runtime_error("[Routes] Request body exceeds maximum allowed size");
         }
     }
 
     return body;
 }
 
-// prefixes session id with "web:" if no channel prefix present
 std::string Routes::resolveSessionKey(const std::string &sessionId) const
 {
     if (sessionId.find(':') == std::string::npos)
@@ -120,12 +104,7 @@ std::string Routes::detectFileType(const std::string &ext) const
         return "audio";
     }
 
-    if (ext == "txt" || ext == "md" || ext == "json" || ext == "yml" || ext == "yaml" || ext == "xml" ||
-        ext == "html" || ext == "css" || ext == "js" || ext == "ts" || ext == "py" || ext == "cpp" ||
-        ext == "hpp" || ext == "h" || ext == "c" || ext == "java" || ext == "rs" || ext == "go" ||
-        ext == "rb" || ext == "sh" || ext == "bat" || ext == "toml" || ext == "ini" || ext == "cfg" ||
-        ext == "conf" || ext == "log" || ext == "csv" || ext == "sql" || ext == "dart" || ext == "swift" ||
-        ext == "kt" || ext == "gradle" || ext == "cmake" || ext.empty())
+    if (ext == "txt" || ext == "md" || ext == "json" || ext == "yml" || ext == "yaml" || ext == "xml" || ext == "html" || ext == "css" || ext == "js" || ext == "ts" || ext == "py" || ext == "cpp" || ext == "hpp" || ext == "h" || ext == "c" || ext == "java" || ext == "rs" || ext == "go" || ext == "rb" || ext == "sh" || ext == "bat" || ext == "toml" || ext == "ini" || ext == "cfg" || ext == "conf" || ext == "log" || ext == "csv" || ext == "sql" || ext == "dart" || ext == "swift" || ext == "kt" || ext == "gradle" || ext == "cmake" || ext.empty())
     {
         return "text";
     }
@@ -137,19 +116,16 @@ std::string Routes::detectFileType(const std::string &ext) const
 const std::set<std::string> Routes::SKIP_DIR_NAMES = {
     "node_modules", "__pycache__", ".venv", ".idea", ".vscode", "dist", "build", ".next"};
 
-// builds a recursive json file tree with paths relative to rootPath
 nlohmann::json Routes::buildFileTree(const std::string &dirPath, const std::string &rootPath) const
 {
     return buildFileTreeImpl(dirPath, rootPath, false);
 }
 
-// builds a project file tree, skipping common non-essential directories
 nlohmann::json Routes::buildFileTreeFromProject(const std::string &dirPath, const std::string &rootPath) const
 {
     return buildFileTreeImpl(dirPath, rootPath, true);
 }
 
-// unified file tree builder
 nlohmann::json Routes::buildFileTreeImpl(const std::string &dirPath, const std::string &rootPath, bool skipNonEssential) const
 {
     nlohmann::json result = nlohmann::json::array();

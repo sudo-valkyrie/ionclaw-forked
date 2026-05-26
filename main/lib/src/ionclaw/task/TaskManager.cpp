@@ -32,14 +32,12 @@ TaskManager::TaskManager(const std::string &tasksFilePath, std::shared_ptr<ioncl
 
         if (ec)
         {
-            spdlog::error("Failed to create tasks directory {}: {}", parentDir.string(), ec.message());
+            spdlog::error("[TaskManager] Failed to create tasks directory {}: {}", parentDir.string(), ec.message());
         }
     }
 }
 
-Task TaskManager::createTask(const std::string &title, const std::string &description,
-                             const std::string &channel, const std::string &chatId,
-                             const std::string &parentTaskId)
+Task TaskManager::createTask(const std::string &title, const std::string &description, const std::string &channel, const std::string &chatId, const std::string &parentTaskId)
 {
     Task snapshot;
 
@@ -64,7 +62,7 @@ Task TaskManager::createTask(const std::string &title, const std::string &descri
     appendToFile(snapshot);
     broadcastUpdate(snapshot);
 
-    spdlog::info("Task created: {}", snapshot.id);
+    spdlog::info("[TaskManager] Task created: {}", snapshot.id);
 
     return snapshot;
 }
@@ -81,7 +79,7 @@ void TaskManager::mutateTask(const std::string &taskId, const char *caller, Muta
 
         if (it == tasks.end())
         {
-            spdlog::warn("Task not found for {}: {}", caller, taskId);
+            spdlog::warn("[TaskManager] Task not found for {}: {}", caller, taskId);
             return;
         }
 
@@ -96,8 +94,8 @@ void TaskManager::mutateTask(const std::string &taskId, const char *caller, Muta
 
 void TaskManager::updateState(const std::string &taskId, TaskState state, const std::string &result)
 {
-    mutateTask(taskId, "updateState", [&](Task &task)
-               {
+    // clang-format off
+    mutateTask(taskId, "updateState", [&](Task &task) {
         task.state = state;
 
         if (!result.empty())
@@ -108,46 +106,55 @@ void TaskManager::updateState(const std::string &taskId, TaskState state, const 
         if (state == TaskState::Done || state == TaskState::Error)
         {
             task.completedAt = task.updatedAt;
-        } });
+        }
+    });
+    // clang-format on
 }
 
 void TaskManager::setAgent(const std::string &taskId, const std::string &agentName)
 {
-    mutateTask(taskId, "setAgent", [&](Task &task)
-               { task.agentName = agentName; });
+    // clang-format off
+    mutateTask(taskId, "setAgent", [&](Task &task) { task.agentName = agentName; });
+    // clang-format on
 }
 
 void TaskManager::incrementIteration(const std::string &taskId)
 {
-    mutateTask(taskId, "incrementIteration", [](Task &task)
-               { task.iterationCount++; });
+    // clang-format off
+    mutateTask(taskId, "incrementIteration", [](Task &task) { task.iterationCount++; });
+    // clang-format on
 }
 
 void TaskManager::incrementToolCount(const std::string &taskId)
 {
-    mutateTask(taskId, "incrementToolCount", [](Task &task)
-               { task.toolCount++; });
+    // clang-format off
+    mutateTask(taskId, "incrementToolCount", [](Task &task) { task.toolCount++; });
+    // clang-format on
 }
 
 void TaskManager::setUsage(const std::string &taskId, const nlohmann::json &usage)
 {
-    mutateTask(taskId, "setUsage", [&](Task &task)
-               { task.usage = usage; });
+    // clang-format off
+    mutateTask(taskId, "setUsage", [&](Task &task) { task.usage = usage; });
+    // clang-format on
 }
 
 void TaskManager::setLiveState(const std::string &taskId, const nlohmann::json &liveState)
 {
-    mutateTask(taskId, "setLiveState", [&](Task &task)
-               { task.liveState = liveState; });
+    // clang-format off
+    mutateTask(taskId, "setLiveState", [&](Task &task) { task.liveState = liveState; });
+    // clang-format on
 }
 
 void TaskManager::setError(const std::string &taskId, const std::string &error)
 {
-    mutateTask(taskId, "setError", [&](Task &task)
-               {
+    // clang-format off
+    mutateTask(taskId, "setError", [&](Task &task) {
         task.errorMessage = error;
         task.state = TaskState::Error;
-        task.completedAt = task.updatedAt; });
+        task.completedAt = task.updatedAt;
+    });
+    // clang-format on
 }
 
 Task TaskManager::getTask(const std::string &taskId) const
@@ -158,14 +165,13 @@ Task TaskManager::getTask(const std::string &taskId) const
 
     if (it == tasks.end())
     {
-        spdlog::warn("Task not found: {}", taskId);
+        spdlog::warn("[TaskManager] Task not found: {}", taskId);
         return {};
     }
 
     return it->second;
 }
 
-// parse an ISO 8601 timestamp into a time_point
 std::chrono::system_clock::time_point TaskManager::parseTimestamp(const std::string &str)
 {
     std::tm tm{};
@@ -235,7 +241,7 @@ void TaskManager::load()
 
     if (!ifs.is_open())
     {
-        spdlog::error("Failed to open tasks file: {}", tasksFilePath);
+        spdlog::error("[TaskManager] Failed to open tasks file: {}", tasksFilePath);
         return;
     }
 
@@ -261,11 +267,11 @@ void TaskManager::load()
         }
         catch (const nlohmann::json::exception &e)
         {
-            spdlog::warn("Failed to parse task line: {}", e.what());
+            spdlog::warn("[TaskManager] Failed to parse task line: {}", e.what());
         }
     }
 
-    spdlog::info("Loaded {} tasks from {}", tasks.size(), tasksFilePath);
+    spdlog::info("[TaskManager] Loaded {} tasks from {}", tasks.size(), tasksFilePath);
 }
 
 void TaskManager::save()
@@ -289,7 +295,7 @@ void TaskManager::save()
 
     if (!ofs.is_open())
     {
-        spdlog::error("Failed to open tasks file for save: {}", tasksFilePath);
+        spdlog::error("[TaskManager] Failed to open tasks file for save: {}", tasksFilePath);
         return;
     }
 
@@ -370,7 +376,7 @@ void TaskManager::appendToFile(const Task &task)
 
     if (!ofs.is_open())
     {
-        spdlog::error("Failed to open tasks file for append: {}", tasksFilePath);
+        spdlog::error("[TaskManager] Failed to open tasks file for append: {}", tasksFilePath);
         return;
     }
 
@@ -390,9 +396,7 @@ void TaskManager::broadcastUpdate(const Task &task)
         return;
     }
 
-    std::string eventType = (task.state == TaskState::Todo && task.iterationCount == 0)
-                                ? "task:created"
-                                : "task:updated";
+    std::string eventType = (task.state == TaskState::Todo && task.iterationCount == 0) ? "task:created" : "task:updated";
 
     dispatcher->broadcast(eventType, task.toJson());
 }

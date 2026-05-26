@@ -15,19 +15,16 @@ namespace image
 {
 
 GrokImageGenerator::GrokImageGenerator(std::string providerName)
-    : name_(std::move(providerName))
+    : name(std::move(providerName))
 {
 }
 
 std::string GrokImageGenerator::providerName() const
 {
-    return name_;
+    return name;
 }
 
-std::string GrokImageGenerator::generate(const std::string &prompt,
-                                         const std::string &filename,
-                                         const nlohmann::json &params,
-                                         const ImageGeneratorContext &context) const
+std::string GrokImageGenerator::generate(const std::string &prompt, const std::string &filename, const nlohmann::json &params, const ImageGeneratorContext &context) const
 {
     if (!context.config)
     {
@@ -53,8 +50,7 @@ std::string GrokImageGenerator::generate(const std::string &prompt,
         baseUrl.pop_back();
     }
 
-    bool hasRefs = params.contains("reference_images") && params["reference_images"].is_array() &&
-                   !params["reference_images"].empty();
+    bool hasRefs = params.contains("reference_images") && params["reference_images"].is_array() && !params["reference_images"].empty();
 
     if (hasRefs)
     {
@@ -64,12 +60,7 @@ std::string GrokImageGenerator::generate(const std::string &prompt,
     return generateImage(prompt, filename, params, context, apiKey, baseUrl);
 }
 
-std::string GrokImageGenerator::generateImage(const std::string &prompt,
-                                              const std::string &filename,
-                                              const nlohmann::json &params,
-                                              const ImageGeneratorContext &context,
-                                              const std::string &apiKey,
-                                              const std::string &baseUrl) const
+std::string GrokImageGenerator::generateImage(const std::string &prompt, const std::string &filename, const nlohmann::json &params, const ImageGeneratorContext &context, const std::string &apiKey, const std::string &baseUrl) const
 {
     std::string url = baseUrl + "/v1/images/generations";
     std::string modelId = ImageGeneratorHelper::extractModelId(context.model);
@@ -118,12 +109,10 @@ std::string GrokImageGenerator::generateImage(const std::string &prompt,
     if (response.statusCode != 200)
     {
         spdlog::error("[GrokImageGenerator] API error HTTP {}: {}", response.statusCode, ionclaw::util::StringHelper::utf8SafeTruncate(response.body, 500));
-        return "Error: image generation API returned HTTP " + std::to_string(response.statusCode) + ": " +
-               ionclaw::util::StringHelper::utf8SafeTruncate(response.body, 500);
+        return "Error: image generation API returned HTTP " + std::to_string(response.statusCode) + ": " + ionclaw::util::StringHelper::utf8SafeTruncate(response.body, 500);
     }
 
-    auto saved = ImageGeneratorHelper::decodeAndSave(
-        response.body, context.publicPath, filename, context.config->server.publicUrl);
+    auto saved = ImageGeneratorHelper::decodeAndSave(response.body, context.publicPath, filename, context.config->server.publicUrl);
 
     if (saved.empty())
     {
@@ -133,16 +122,10 @@ std::string GrokImageGenerator::generateImage(const std::string &prompt,
     return "Image saved: " + saved;
 }
 
-std::string GrokImageGenerator::editImage(const std::string &prompt,
-                                          const std::string &filename,
-                                          const nlohmann::json &params,
-                                          const ImageGeneratorContext &context,
-                                          const std::string &apiKey,
-                                          const std::string &baseUrl) const
+std::string GrokImageGenerator::editImage(const std::string &prompt, const std::string &filename, const nlohmann::json &params, const ImageGeneratorContext &context, const std::string &apiKey, const std::string &baseUrl) const
 {
     bool restrict = !context.config || context.config->tools.restrictToWorkspace;
-    auto resolvedRefs = ImageGeneratorHelper::resolveReferencePaths(
-        params, context.projectPath, context.workspacePath, context.publicPath, restrict);
+    auto resolvedRefs = ImageGeneratorHelper::resolveReferencePaths(params, context.projectPath, context.workspacePath, context.publicPath, restrict);
 
     if (resolvedRefs.empty())
     {
@@ -214,12 +197,10 @@ std::string GrokImageGenerator::editImage(const std::string &prompt,
     if (response.statusCode != 200)
     {
         spdlog::error("[GrokImageGenerator] Edit API error HTTP {}: {}", response.statusCode, ionclaw::util::StringHelper::utf8SafeTruncate(response.body, 500));
-        return "Error: image edit API returned HTTP " + std::to_string(response.statusCode) + ": " +
-               ionclaw::util::StringHelper::utf8SafeTruncate(response.body, 500);
+        return "Error: image edit API returned HTTP " + std::to_string(response.statusCode) + ": " + ionclaw::util::StringHelper::utf8SafeTruncate(response.body, 500);
     }
 
-    auto saved = ImageGeneratorHelper::decodeAndSave(
-        response.body, context.publicPath, filename, context.config->server.publicUrl);
+    auto saved = ImageGeneratorHelper::decodeAndSave(response.body, context.publicPath, filename, context.config->server.publicUrl);
 
     if (saved.empty())
     {

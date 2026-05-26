@@ -20,13 +20,7 @@ namespace handler
 class RequestHandlerFactory final : public Poco::Net::HTTPRequestHandlerFactory
 {
 public:
-    RequestHandlerFactory(
-        std::shared_ptr<Routes> routes,
-        std::shared_ptr<Auth> auth,
-        std::shared_ptr<WebSocketManager> wsManager,
-        std::shared_ptr<ionclaw::mcp::McpDispatcher> mcpDispatcher,
-        const std::string &webDir,
-        const std::string &publicDir);
+    RequestHandlerFactory(std::shared_ptr<Routes> routes, std::shared_ptr<Auth> auth, std::shared_ptr<WebSocketManager> wsManager, std::shared_ptr<ionclaw::mcp::McpDispatcher> mcpDispatcher, const std::string &webDir, const std::string &publicDir);
 
     Poco::Net::HTTPRequestHandler *createRequestHandler(const Poco::Net::HTTPServerRequest &req) override;
 

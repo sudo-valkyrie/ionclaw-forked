@@ -28,10 +28,16 @@ html {
   font-size: 15px;
 }
 
-html, body, #app {
+html,
+body,
+#app {
   margin: 0;
   padding: 0;
   height: 100%;
-  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    sans-serif;
 }
 </style>

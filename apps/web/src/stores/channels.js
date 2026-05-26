@@ -33,9 +33,7 @@ export const useChannelsStore = defineStore('channels', () => {
     const existing = channels.value[data.name]
     channels.value = {
       ...channels.value,
-      [data.name]: existing
-        ? { ...existing, running: data.running }
-        : { running: data.running, type: data.name }
+      [data.name]: existing ? { ...existing, running: data.running } : { running: data.running, type: data.name },
     }
   }
 

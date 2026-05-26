@@ -57,8 +57,7 @@ void SessionSweeper::sweepIfNeeded(const std::vector<std::string> &excludeFilena
         return;
     }
 
-    spdlog::info("[SessionSweeper] Disk usage {} bytes exceeds high water mark {} bytes, sweeping...",
-                 total, highWaterBytes);
+    spdlog::info("[SessionSweeper] Disk usage {} bytes exceeds high water mark {} bytes, sweeping...", total, highWaterBytes);
 
     // build set of filenames to skip (sessions currently in cache)
     std::set<std::string> excluded(excludeFilenames.begin(), excludeFilenames.end());
@@ -96,8 +95,9 @@ void SessionSweeper::sweepIfNeeded(const std::vector<std::string> &excludeFilena
         }
     }
 
-    std::sort(files.begin(), files.end(), [](const FileEntry &a, const FileEntry &b)
-              { return a.modTime < b.modTime; });
+    // clang-format off
+    std::sort(files.begin(), files.end(), [](const FileEntry &a, const FileEntry &b) { return a.modTime < b.modTime; });
+    // clang-format on
 
     int removed = 0;
 

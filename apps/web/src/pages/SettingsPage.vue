@@ -43,7 +43,11 @@ const serverConfig = ref({ host: '0.0.0.0', port: 8080, public_url: '', credenti
 const webClientConfig = ref({ credential: '' })
 const credentials = ref({})
 const providers = ref({})
-const tools = ref({ general: { restrict_to_workspace: true }, exec: { timeout: 60 }, web_search: { provider: 'brave', credential: '', max_results: 5 } })
+const tools = ref({
+  general: { restrict_to_workspace: true },
+  exec: { timeout: 60 },
+  web_search: { provider: 'brave', credential: '', max_results: 5 },
+})
 const storage = ref({ type: 'local' })
 const imageConfig = ref({ model: '', aspect_ratio: '', size: '' })
 const transcriptionConfig = ref({ model: '' })
@@ -69,7 +73,7 @@ const deleteTarget = ref({ section: '', name: '' })
 const availableTools = ref([])
 
 function humanize(name) {
-  return name.replace(/[_-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  return name.replace(/[_-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 const references = computed(() => ({
@@ -105,12 +109,14 @@ async function loadAvailableTools() {
   }
 }
 
-const toolNames = computed(() => availableTools.value.map(t => t.name))
+const toolNames = computed(() => availableTools.value.map((t) => t.name))
 
 function filterTools(query) {
   const q = (query || '').trim().toLowerCase()
   if (!q) return availableTools.value
-  return availableTools.value.filter(t => t.name.toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q))
+  return availableTools.value.filter(
+    (t) => t.name.toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q),
+  )
 }
 
 function isToolEnabled(agent, toolName) {
@@ -121,9 +127,9 @@ function isToolEnabled(agent, toolName) {
 function toggleTool(agent, toolName) {
   // first toggle: initialize from current state
   if (!agent.enabledTools || agent.enabledTools.length === 0) {
-    agent.enabledTools = toolNames.value.filter(t => t !== toolName)
+    agent.enabledTools = toolNames.value.filter((t) => t !== toolName)
   } else if (agent.enabledTools.includes(toolName)) {
-    agent.enabledTools = agent.enabledTools.filter(t => t !== toolName)
+    agent.enabledTools = agent.enabledTools.filter((t) => t !== toolName)
   } else {
     agent.enabledTools = [...agent.enabledTools, toolName]
   }
@@ -191,7 +197,11 @@ function mapConfigToLocal() {
   const cfgProvs = configStore.config.providers || {}
   const parsedProvs = {}
   for (const [name, prov] of Object.entries(cfgProvs)) {
-    parsedProvs[name] = { credential: prov.credential || '', base_url: prov.base_url || '', timeout: prov.timeout ?? 60 }
+    parsedProvs[name] = {
+      credential: prov.credential || '',
+      base_url: prov.base_url || '',
+      timeout: prov.timeout ?? 60,
+    }
   }
   providers.value = parsedProvs
 
@@ -290,7 +300,12 @@ function coerceTypes(section, data) {
 
 async function saveSection(section, data) {
   if (!configLoaded.value) {
-    toast.add({ severity: 'error', summary: 'Error', detail: 'Config not loaded. Reload the page before saving.', life: 5000 })
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'Config not loaded. Reload the page before saving.',
+      life: 5000,
+    })
     return
   }
   const payload = coerceTypes(section, data)
@@ -374,6 +389,11 @@ async function restartServices() {
 }
 
 // agents
+function openAddAgent() {
+  showAddAgent.value = true
+  newAgentName.value = ''
+}
+
 function confirmAddAgent() {
   const name = newAgentName.value.trim().toLowerCase().replace(/\s+/g, '_')
   if (!name) return
@@ -381,7 +401,14 @@ function confirmAddAgent() {
     toast.add({ severity: 'warn', summary: 'Exists', detail: `Agent "${name}" already exists`, life: 2000 })
     return
   }
-  agentsConfig.value[name] = { workspace: '', description: '', model: '', instructions: '', enabledTools: [], toolsFilter: '' }
+  agentsConfig.value[name] = {
+    workspace: '',
+    description: '',
+    model: '',
+    instructions: '',
+    enabledTools: [],
+    toolsFilter: '',
+  }
   showAddAgent.value = false
 }
 
@@ -405,6 +432,11 @@ async function saveAgents() {
 }
 
 // credentials
+function openAddCredential() {
+  showAddCredential.value = true
+  newCredentialName.value = ''
+}
+
 function confirmAddCredential() {
   const name = newCredentialName.value.trim().toLowerCase().replace(/\s+/g, '_')
   if (!name) return
@@ -426,6 +458,11 @@ async function saveCredentials() {
 }
 
 // providers
+function openAddProvider() {
+  showAddProvider.value = true
+  newProviderName.value = ''
+}
+
 function confirmAddProvider() {
   const name = newProviderName.value.trim().toLowerCase().replace(/\s+/g, '_')
   if (!name) return
@@ -459,7 +496,10 @@ async function saveTelegram() {
     await channelsStore.updateChannel('telegram', {
       enabled: telegram.value.enabled,
       credential: telegram.value.credential,
-      allowed_users: telegram.value.allowed_users.split(',').map((s) => s.trim()).filter(Boolean),
+      allowed_users: telegram.value.allowed_users
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
       proxy: telegram.value.proxy || '',
       reply_to_message: telegram.value.reply_to_message,
     })
@@ -528,7 +568,10 @@ async function toggleMcp(running) {
       />
     </div>
     <div class="settings-content">
-      <Tabs v-model:value="activeTab" :pt="{ root: { style: { flex: '1', display: 'flex', flexDirection: 'column' } } }">
+      <Tabs
+        v-model:value="activeTab"
+        :pt="{ root: { style: { flex: '1', display: 'flex', flexDirection: 'column' } } }"
+      >
         <TabList>
           <Tab value="info">Info</Tab>
           <Tab value="bot">Bot</Tab>
@@ -605,7 +648,7 @@ async function toggleMcp(running) {
           <!-- Bot -->
           <TabPanel value="bot" :pt="{ root: { style: { minHeight: '100%' } } }">
             <div class="tab-content">
-              <DynamicForm v-if="formSchemas.bot" :schema="formSchemas.bot" v-model="bot" />
+              <DynamicForm v-if="formSchemas.bot" v-model="bot" :schema="formSchemas.bot" />
               <Button label="Save" icon="pi pi-save" size="small" @click="saveSection('bot', bot)" />
             </div>
           </TabPanel>
@@ -613,7 +656,12 @@ async function toggleMcp(running) {
           <!-- Server -->
           <TabPanel value="server" :pt="{ root: { style: { minHeight: '100%' } } }">
             <div class="tab-content">
-              <DynamicForm v-if="formSchemas.server" :schema="formSchemas.server" v-model="serverConfig" :references="references" />
+              <DynamicForm
+                v-if="formSchemas.server"
+                v-model="serverConfig"
+                :schema="formSchemas.server"
+                :references="references"
+              />
               <Button label="Save" icon="pi pi-save" size="small" @click="saveSection('server', serverConfig)" />
             </div>
           </TabPanel>
@@ -621,7 +669,12 @@ async function toggleMcp(running) {
           <!-- Web Client -->
           <TabPanel value="web_client" :pt="{ root: { style: { minHeight: '100%' } } }">
             <div class="tab-content">
-              <DynamicForm v-if="formSchemas.web_client" :schema="formSchemas.web_client" v-model="webClientConfig" :references="references" />
+              <DynamicForm
+                v-if="formSchemas.web_client"
+                v-model="webClientConfig"
+                :schema="formSchemas.web_client"
+                :references="references"
+              />
               <Button label="Save" icon="pi pi-save" size="small" @click="saveSection('web_client', webClientConfig)" />
             </div>
           </TabPanel>
@@ -633,19 +686,48 @@ async function toggleMcp(running) {
                 <div class="item-header">
                   <i class="pi pi-user"></i>
                   <strong>{{ humanize(name) }}</strong>
-                  <Button v-if="Object.keys(agentsConfig).length > 1" icon="pi pi-trash" severity="danger" text rounded size="small" @click="removeAgent(name)" />
+                  <Button
+                    v-if="Object.keys(agentsConfig).length > 1"
+                    icon="pi pi-trash"
+                    severity="danger"
+                    text
+                    rounded
+                    size="small"
+                    @click="removeAgent(name)"
+                  />
                 </div>
-                <DynamicForm v-if="formSchemas.agent" :schema="formSchemas.agent" :model-value="agent" @update:model-value="agentsConfig[name] = $event" :references="references" />
+                <DynamicForm
+                  v-if="formSchemas.agent"
+                  :schema="formSchemas.agent"
+                  :model-value="agent"
+                  :references="references"
+                  @update:model-value="agentsConfig[name] = $event"
+                />
                 <div class="form-group">
                   <div class="tools-header">
                     <label>Tools</label>
-                    <span class="tools-count">{{ !agent.enabledTools || agent.enabledTools.length === 0 ? toolNames.length : agent.enabledTools.filter(t => toolNames.includes(t)).length }}/{{ toolNames.length }}</span>
+                    <span class="tools-count"
+                      >{{
+                        !agent.enabledTools || agent.enabledTools.length === 0
+                          ? toolNames.length
+                          : agent.enabledTools.filter((t) => toolNames.includes(t)).length
+                      }}/{{ toolNames.length }}</span
+                    >
                     <Button label="All" size="small" text severity="secondary" @click="selectAllTools(agent)" />
                   </div>
                   <InputText v-model="agent.toolsFilter" class="w-full tools-search" placeholder="Filter tools..." />
                   <div class="tools-toggle-list">
-                    <div v-for="tool in filterTools(agent.toolsFilter)" :key="tool.name" class="tool-toggle-item" @click="toggleTool(agent, tool.name)">
-                      <ToggleSwitch :modelValue="isToolEnabled(agent, tool.name)" @update:modelValue="toggleTool(agent, tool.name)" @click.stop />
+                    <div
+                      v-for="tool in filterTools(agent.toolsFilter)"
+                      :key="tool.name"
+                      class="tool-toggle-item"
+                      @click="toggleTool(agent, tool.name)"
+                    >
+                      <ToggleSwitch
+                        :model-value="isToolEnabled(agent, tool.name)"
+                        @update:model-value="toggleTool(agent, tool.name)"
+                        @click.stop
+                      />
                       <div class="tool-toggle-info">
                         <span class="tool-toggle-name">{{ tool.name }}</span>
                         <span v-if="tool.description" class="tool-toggle-desc">{{ tool.description }}</span>
@@ -658,7 +740,7 @@ async function toggleMcp(running) {
                 </div>
               </div>
               <div class="button-row">
-                <Button label="Add Agent" icon="pi pi-plus" severity="secondary" size="small" @click="showAddAgent = true; newAgentName = ''" />
+                <Button label="Add Agent" icon="pi pi-plus" severity="secondary" size="small" @click="openAddAgent" />
                 <Button label="Save" icon="pi pi-save" size="small" @click="saveAgents" />
               </div>
             </div>
@@ -671,12 +753,31 @@ async function toggleMcp(running) {
                 <div class="item-header">
                   <i class="pi pi-lock"></i>
                   <strong>{{ humanize(name) }}</strong>
-                  <Button icon="pi pi-trash" severity="danger" text rounded size="small" @click="removeCredential(name)" />
+                  <Button
+                    icon="pi pi-trash"
+                    severity="danger"
+                    text
+                    rounded
+                    size="small"
+                    @click="removeCredential(name)"
+                  />
                 </div>
-                <DynamicForm v-if="formSchemas.credential" :schema="formSchemas.credential" :model-value="cred" @update:model-value="credentials[name] = $event" :references="references" />
+                <DynamicForm
+                  v-if="formSchemas.credential"
+                  :schema="formSchemas.credential"
+                  :model-value="cred"
+                  :references="references"
+                  @update:model-value="credentials[name] = $event"
+                />
               </div>
               <div class="button-row">
-                <Button label="Add Credential" icon="pi pi-plus" severity="secondary" size="small" @click="showAddCredential = true; newCredentialName = ''" />
+                <Button
+                  label="Add Credential"
+                  icon="pi pi-plus"
+                  severity="secondary"
+                  size="small"
+                  @click="openAddCredential"
+                />
                 <Button label="Save" icon="pi pi-save" size="small" @click="saveCredentials" />
               </div>
             </div>
@@ -689,12 +790,31 @@ async function toggleMcp(running) {
                 <div class="item-header">
                   <i class="pi pi-box"></i>
                   <strong>{{ humanize(name) }}</strong>
-                  <Button icon="pi pi-trash" severity="danger" text rounded size="small" @click="removeProvider(name)" />
+                  <Button
+                    icon="pi pi-trash"
+                    severity="danger"
+                    text
+                    rounded
+                    size="small"
+                    @click="removeProvider(name)"
+                  />
                 </div>
-                <DynamicForm v-if="formSchemas.provider" :schema="formSchemas.provider" :model-value="prov" @update:model-value="providers[name] = $event" :references="references" />
+                <DynamicForm
+                  v-if="formSchemas.provider"
+                  :schema="formSchemas.provider"
+                  :model-value="prov"
+                  :references="references"
+                  @update:model-value="providers[name] = $event"
+                />
               </div>
               <div class="button-row">
-                <Button label="Add Provider" icon="pi pi-plus" severity="secondary" size="small" @click="showAddProvider = true; newProviderName = ''" />
+                <Button
+                  label="Add Provider"
+                  icon="pi pi-plus"
+                  severity="secondary"
+                  size="small"
+                  @click="openAddProvider"
+                />
                 <Button label="Save" icon="pi pi-save" size="small" @click="saveProviders" />
               </div>
             </div>
@@ -721,7 +841,12 @@ async function toggleMcp(running) {
                     :severity="channelsStore.channels?.telegram?.running ? 'success' : 'danger'"
                   />
                 </div>
-                <DynamicForm v-if="formSchemas.channels_telegram" :schema="formSchemas.channels_telegram" v-model="telegram" :references="references" />
+                <DynamicForm
+                  v-if="formSchemas.channels_telegram"
+                  v-model="telegram"
+                  :schema="formSchemas.channels_telegram"
+                  :references="references"
+                />
                 <div class="button-row">
                   <Button label="Save" icon="pi pi-save" size="small" severity="secondary" @click="saveTelegram" />
                   <Button
@@ -743,8 +868,16 @@ async function toggleMcp(running) {
                     :severity="channelsStore.channels?.mcp?.running ? 'success' : 'danger'"
                   />
                 </div>
-                <p class="item-desc" style="margin-bottom: 0.75rem">Model Context Protocol server. Connect Claude Code, Cursor, or GitHub Copilot via <code>http://localhost:PORT/mcp</code>.</p>
-                <DynamicForm v-if="formSchemas.channels_mcp" :schema="formSchemas.channels_mcp" v-model="mcp" :references="references" />
+                <p class="item-desc" style="margin-bottom: 0.75rem">
+                  Model Context Protocol server. Connect Claude Code, Cursor, or GitHub Copilot via
+                  <code>http://localhost:PORT/mcp</code>.
+                </p>
+                <DynamicForm
+                  v-if="formSchemas.channels_mcp"
+                  v-model="mcp"
+                  :schema="formSchemas.channels_mcp"
+                  :references="references"
+                />
                 <div class="button-row">
                   <Button label="Save" icon="pi pi-save" size="small" severity="secondary" @click="saveMcp" />
                   <Button
@@ -762,7 +895,12 @@ async function toggleMcp(running) {
           <!-- Storage -->
           <TabPanel value="storage" :pt="{ root: { style: { minHeight: '100%' } } }">
             <div class="tab-content">
-              <DynamicForm v-if="formSchemas.storage" :schema="formSchemas.storage" v-model="storage" :references="references" />
+              <DynamicForm
+                v-if="formSchemas.storage"
+                v-model="storage"
+                :schema="formSchemas.storage"
+                :references="references"
+              />
               <Button label="Save" icon="pi pi-save" size="small" @click="saveSection('storage', storage)" />
             </div>
           </TabPanel>
@@ -775,7 +913,11 @@ async function toggleMcp(running) {
                   <i class="pi pi-cog"></i>
                   <strong>General</strong>
                 </div>
-                <DynamicForm v-if="formSchemas.tools_general" :schema="formSchemas.tools_general" v-model="tools.general" />
+                <DynamicForm
+                  v-if="formSchemas.tools_general"
+                  v-model="tools.general"
+                  :schema="formSchemas.tools_general"
+                />
               </div>
 
               <div class="item-block">
@@ -783,7 +925,7 @@ async function toggleMcp(running) {
                   <i class="pi pi-code"></i>
                   <strong>Exec</strong>
                 </div>
-                <DynamicForm v-if="formSchemas.tools_exec" :schema="formSchemas.tools_exec" v-model="tools.exec" />
+                <DynamicForm v-if="formSchemas.tools_exec" v-model="tools.exec" :schema="formSchemas.tools_exec" />
               </div>
 
               <div class="item-block">
@@ -791,7 +933,12 @@ async function toggleMcp(running) {
                   <i class="pi pi-search"></i>
                   <strong>Web Search</strong>
                 </div>
-                <DynamicForm v-if="formSchemas.tools_web_search" :schema="formSchemas.tools_web_search" v-model="tools.web_search" :references="references" />
+                <DynamicForm
+                  v-if="formSchemas.tools_web_search"
+                  v-model="tools.web_search"
+                  :schema="formSchemas.tools_web_search"
+                  :references="references"
+                />
               </div>
 
               <Button label="Save" icon="pi pi-save" size="small" @click="saveSection('tools', tools)" />
@@ -801,7 +948,12 @@ async function toggleMcp(running) {
           <!-- Image -->
           <TabPanel value="image" :pt="{ root: { style: { minHeight: '100%' } } }">
             <div class="tab-content">
-              <DynamicForm v-if="formSchemas.image" :schema="formSchemas.image" v-model="imageConfig" :references="references" />
+              <DynamicForm
+                v-if="formSchemas.image"
+                v-model="imageConfig"
+                :schema="formSchemas.image"
+                :references="references"
+              />
               <Button label="Save" icon="pi pi-save" size="small" @click="saveSection('image', imageConfig)" />
             </div>
           </TabPanel>
@@ -809,29 +961,74 @@ async function toggleMcp(running) {
           <!-- Transcription -->
           <TabPanel value="transcription" :pt="{ root: { style: { minHeight: '100%' } } }">
             <div class="tab-content">
-              <DynamicForm v-if="formSchemas.transcription" :schema="formSchemas.transcription" v-model="transcriptionConfig" :references="references" />
-              <Button label="Save" icon="pi pi-save" size="small" @click="saveSection('transcription', transcriptionConfig)" />
+              <DynamicForm
+                v-if="formSchemas.transcription"
+                v-model="transcriptionConfig"
+                :schema="formSchemas.transcription"
+                :references="references"
+              />
+              <Button
+                label="Save"
+                icon="pi pi-save"
+                size="small"
+                @click="saveSection('transcription', transcriptionConfig)"
+              />
             </div>
           </TabPanel>
 
           <!-- Advanced -->
           <TabPanel value="advanced" :pt="{ root: { style: { minHeight: '100%' } } }">
             <div class="tab-content tab-content-wide">
-              <Message severity="warn" :closable="false" class="tab-message">Edit raw config with care. Invalid changes may break the application. Valide before save.</Message>
+              <Message severity="warn" :closable="false" class="tab-message"
+                >Edit raw config with care. Invalid changes may break the application. Valide before save.</Message
+              >
               <div class="advanced-toolbar">
                 <div class="toolbar-group">
-                  <Button label="Reload" icon="pi pi-refresh" size="small" severity="secondary" :loading="yamlLoading" @click="loadYaml" />
-                  <Button label="Validate" icon="pi pi-check-circle" size="small" severity="info" @click="validateYaml" :disabled="!rawYaml || yamlLoading" />
+                  <Button
+                    label="Reload"
+                    icon="pi pi-refresh"
+                    size="small"
+                    severity="secondary"
+                    :loading="yamlLoading"
+                    @click="loadYaml"
+                  />
+                  <Button
+                    label="Validate"
+                    icon="pi pi-check-circle"
+                    size="small"
+                    severity="info"
+                    :disabled="!rawYaml || yamlLoading"
+                    @click="validateYaml"
+                  />
                 </div>
                 <div class="toolbar-group">
-                  <Button label="Save" icon="pi pi-save" size="small" @click="showSaveConfirm = true" :disabled="!rawYaml || yamlLoading" />
-                  <Button label="Restart" icon="pi pi-replay" size="small" severity="warn" :loading="restarting" @click="showRestartConfirm = true" />
+                  <Button
+                    label="Save"
+                    icon="pi pi-save"
+                    size="small"
+                    :disabled="!rawYaml || yamlLoading"
+                    @click="showSaveConfirm = true"
+                  />
+                  <Button
+                    label="Restart"
+                    icon="pi pi-replay"
+                    size="small"
+                    severity="warn"
+                    :loading="restarting"
+                    @click="showRestartConfirm = true"
+                  />
                 </div>
               </div>
               <div v-if="yamlLoading" class="yaml-loading">
                 <i class="pi pi-spin pi-spinner" style="font-size: 1.5rem"></i>
               </div>
-              <Codemirror v-else v-model="rawYaml" :extensions="editorExtensions" :style="{ fontSize: '0.85rem' }" class="yaml-editor" />
+              <Codemirror
+                v-else
+                v-model="rawYaml"
+                :extensions="editorExtensions"
+                :style="{ fontSize: '0.85rem' }"
+                class="yaml-editor"
+              />
             </div>
           </TabPanel>
         </TabPanels>
@@ -839,7 +1036,13 @@ async function toggleMcp(running) {
     </div>
 
     <!-- Dialogs -->
-    <Dialog v-model:visible="showSaveConfirm" header="Confirm Save" :modal="true" :style="{ width: '24rem' }" :breakpoints="{ '768px': '90vw' }">
+    <Dialog
+      v-model:visible="showSaveConfirm"
+      header="Confirm Save"
+      :modal="true"
+      :style="{ width: '24rem' }"
+      :breakpoints="{ '768px': '90vw' }"
+    >
       <p>Are you sure? This will overwrite the current configuration.</p>
       <template #footer>
         <Button label="Cancel" severity="secondary" text size="small" @click="showSaveConfirm = false" />
@@ -847,7 +1050,13 @@ async function toggleMcp(running) {
       </template>
     </Dialog>
 
-    <Dialog v-model:visible="showRestartConfirm" header="Confirm Restart" :modal="true" :style="{ width: '24rem' }" :breakpoints="{ '768px': '90vw' }">
+    <Dialog
+      v-model:visible="showRestartConfirm"
+      header="Confirm Restart"
+      :modal="true"
+      :style="{ width: '24rem' }"
+      :breakpoints="{ '768px': '90vw' }"
+    >
       <p>Are you sure? All services will be restarted.</p>
       <template #footer>
         <Button label="Cancel" severity="secondary" text size="small" @click="showRestartConfirm = false" />
@@ -855,41 +1064,89 @@ async function toggleMcp(running) {
       </template>
     </Dialog>
 
-    <Dialog v-model:visible="showAddAgent" header="Add Agent" :modal="true" :style="{ width: '24rem' }" :breakpoints="{ '768px': '90vw' }">
+    <Dialog
+      v-model:visible="showAddAgent"
+      header="Add Agent"
+      :modal="true"
+      :style="{ width: '24rem' }"
+      :breakpoints="{ '768px': '90vw' }"
+    >
       <div class="form-group">
         <label>Agent Name</label>
         <InputText v-model="newAgentName" class="w-full" placeholder="e.g. researcher" @keyup.enter="confirmAddAgent" />
       </div>
       <template #footer>
         <Button label="Cancel" severity="secondary" text size="small" @click="showAddAgent = false" />
-        <Button label="Add" icon="pi pi-plus" size="small" @click="confirmAddAgent" :disabled="!newAgentName.trim()" />
+        <Button label="Add" icon="pi pi-plus" size="small" :disabled="!newAgentName.trim()" @click="confirmAddAgent" />
       </template>
     </Dialog>
 
-    <Dialog v-model:visible="showAddCredential" header="Add Credential" :modal="true" :style="{ width: '24rem' }" :breakpoints="{ '768px': '90vw' }">
+    <Dialog
+      v-model:visible="showAddCredential"
+      header="Add Credential"
+      :modal="true"
+      :style="{ width: '24rem' }"
+      :breakpoints="{ '768px': '90vw' }"
+    >
       <div class="form-group">
         <label>Credential Name</label>
-        <InputText v-model="newCredentialName" class="w-full" placeholder="e.g. openai, twitter" @keyup.enter="confirmAddCredential" />
+        <InputText
+          v-model="newCredentialName"
+          class="w-full"
+          placeholder="e.g. openai, twitter"
+          @keyup.enter="confirmAddCredential"
+        />
       </div>
       <template #footer>
         <Button label="Cancel" severity="secondary" text size="small" @click="showAddCredential = false" />
-        <Button label="Add" icon="pi pi-plus" size="small" @click="confirmAddCredential" :disabled="!newCredentialName.trim()" />
+        <Button
+          label="Add"
+          icon="pi pi-plus"
+          size="small"
+          :disabled="!newCredentialName.trim()"
+          @click="confirmAddCredential"
+        />
       </template>
     </Dialog>
 
-    <Dialog v-model:visible="showAddProvider" header="Add Provider" :modal="true" :style="{ width: '24rem' }" :breakpoints="{ '768px': '90vw' }">
+    <Dialog
+      v-model:visible="showAddProvider"
+      header="Add Provider"
+      :modal="true"
+      :style="{ width: '24rem' }"
+      :breakpoints="{ '768px': '90vw' }"
+    >
       <div class="form-group">
         <label>Provider Name</label>
-        <InputText v-model="newProviderName" class="w-full" placeholder="e.g. anthropic, openai" @keyup.enter="confirmAddProvider" />
+        <InputText
+          v-model="newProviderName"
+          class="w-full"
+          placeholder="e.g. anthropic, openai"
+          @keyup.enter="confirmAddProvider"
+        />
       </div>
       <template #footer>
         <Button label="Cancel" severity="secondary" text size="small" @click="showAddProvider = false" />
-        <Button label="Add" icon="pi pi-plus" size="small" @click="confirmAddProvider" :disabled="!newProviderName.trim()" />
+        <Button
+          label="Add"
+          icon="pi pi-plus"
+          size="small"
+          :disabled="!newProviderName.trim()"
+          @click="confirmAddProvider"
+        />
       </template>
     </Dialog>
 
-    <Dialog v-model:visible="showDeleteConfirm" header="Confirm Delete" :modal="true" :style="{ width: '24rem' }" :breakpoints="{ '768px': '90vw' }">
-      <p>Delete <strong>{{ deleteTarget.name }}</strong> from {{ deleteTarget.section }}?</p>
+    <Dialog
+      v-model:visible="showDeleteConfirm"
+      header="Confirm Delete"
+      :modal="true"
+      :style="{ width: '24rem' }"
+      :breakpoints="{ '768px': '90vw' }"
+    >
+      <p>
+        Delete <strong>{{ deleteTarget.name }}</strong> from {{ deleteTarget.section }}?
+      </p>
       <template #footer>
         <Button label="Cancel" severity="secondary" text size="small" @click="showDeleteConfirm = false" />
         <Button label="Delete" icon="pi pi-trash" severity="danger" size="small" @click="confirmDeleteItem" />

@@ -114,7 +114,7 @@ async function loadCatalog() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
     allSkills.value = Array.isArray(data) ? data : data.skills || []
-  } catch (e) {
+  } catch {
     toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to load marketplace catalog', life: 3000 })
     allSkills.value = []
   } finally {
@@ -190,7 +190,9 @@ async function confirmInstall() {
     confirmChecking.value = true
     try {
       const agent = selectedTarget.value || ''
-      const check = await api.get(`/marketplace/check/${encodeURIComponent(skill.source)}/${encodeURIComponent(skill.name)}?agent=${encodeURIComponent(agent)}`)
+      const check = await api.get(
+        `/marketplace/check/${encodeURIComponent(skill.source)}/${encodeURIComponent(skill.name)}?agent=${encodeURIComponent(agent)}`,
+      )
       if (check.installed) {
         confirmReplace.value = true
         return
@@ -223,7 +225,7 @@ async function doInstall(skill) {
     toast.add({ severity: 'error', summary: 'Error', detail: result.error, life: 3000 })
     return
   }
-  const target = targets.value.find(t => t.value === agent)
+  const target = targets.value.find((t) => t.value === agent)
   const label = target ? target.label : 'project'
   toast.add({ severity: 'success', summary: 'Installed', detail: `${skill.name} → ${label}`, life: 2000 })
 }
@@ -244,8 +246,18 @@ async function doInstall(skill) {
         <InputText v-model="search" placeholder="Search skills..." class="search-input" />
       </span>
       <i v-if="searching" class="pi pi-spin pi-spinner search-spinner" />
-      <span v-if="!loading && !searching && search" class="search-count">{{ allMatches.length }} / {{ allSkills.length }} skills</span>
-      <Button v-if="search" icon="pi pi-times" severity="secondary" text size="small" @click="clearSearch" title="Clear search" />
+      <span v-if="!loading && !searching && search" class="search-count"
+        >{{ allMatches.length }} / {{ allSkills.length }} skills</span
+      >
+      <Button
+        v-if="search"
+        icon="pi pi-times"
+        severity="secondary"
+        text
+        size="small"
+        title="Clear search"
+        @click="clearSearch"
+      />
     </div>
 
     <div v-if="loading" class="page-loading">
@@ -279,7 +291,15 @@ async function doInstall(skill) {
               @click="handleInstall(skill)"
             />
             <Button icon="pi pi-book" label="Read" severity="secondary" text size="small" @click="viewReadme(skill)" />
-            <Button v-if="skill.license" icon="pi pi-file" label="License" severity="secondary" text size="small" @click="viewLicense(skill)" />
+            <Button
+              v-if="skill.license"
+              icon="pi pi-file"
+              label="License"
+              severity="secondary"
+              text
+              size="small"
+              @click="viewLicense(skill)"
+            />
           </div>
         </template>
       </Card>
@@ -326,12 +346,21 @@ async function doInstall(skill) {
       <pre v-else class="license-text">{{ licenseContent }}</pre>
     </Dialog>
 
-    <Dialog v-model:visible="confirmDialogVisible" :header="confirmReplace ? 'Replace Skill' : 'Install Skill'" :modal="true" :style="{ width: '26rem' }" :breakpoints="{ '768px': '90vw' }">
+    <Dialog
+      v-model:visible="confirmDialogVisible"
+      :header="confirmReplace ? 'Replace Skill' : 'Install Skill'"
+      :modal="true"
+      :style="{ width: '26rem' }"
+      :breakpoints="{ '768px': '90vw' }"
+    >
       <div class="install-dialog">
         <p v-if="confirmReplace">
           <strong>{{ confirmTarget?.source }}/{{ confirmTarget?.name }}</strong> is already installed. Replace it?
         </p>
-        <p v-else>Install <strong>{{ confirmTarget?.source }}/{{ confirmTarget?.name }}</strong>?</p>
+        <p v-else>
+          Install <strong>{{ confirmTarget?.source }}/{{ confirmTarget?.name }}</strong
+          >?
+        </p>
         <div v-if="targets.length > 1 && !confirmReplace" class="install-target">
           <label>Install to</label>
           <Select
@@ -525,9 +554,15 @@ async function doInstall(skill) {
   margin-top: 0;
 }
 
-.skill-content :deep(h1) { font-size: 1.4rem; }
-.skill-content :deep(h2) { font-size: 1.2rem; }
-.skill-content :deep(h3) { font-size: 1.05rem; }
+.skill-content :deep(h1) {
+  font-size: 1.4rem;
+}
+.skill-content :deep(h2) {
+  font-size: 1.2rem;
+}
+.skill-content :deep(h3) {
+  font-size: 1.05rem;
+}
 
 .skill-content :deep(p) {
   margin-bottom: 0.85rem;

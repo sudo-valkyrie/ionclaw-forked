@@ -31,11 +31,10 @@ SkillsLoader::SkillsLoader(const std::string &projectPath, const std::string &wo
 {
     if (projectPath.empty())
     {
-        throw std::invalid_argument("SkillsLoader: projectPath is required");
+        throw std::invalid_argument("[SkillsLoader] projectPath is required");
     }
 }
 
-// scan a directory for skill folders containing SKILL.md
 void SkillsLoader::scanSkillsDir(const std::string &base, std::map<std::string, std::string> &skills) const
 {
     if (base.empty() || !fs::is_directory(base))
@@ -127,7 +126,6 @@ std::map<std::string, std::string> SkillsLoader::discoverSkills() const
     return skills;
 }
 
-// parse yaml frontmatter from skill markdown content
 std::pair<nlohmann::json, std::string> SkillsLoader::parseFrontmatter(const std::string &content)
 {
     // thread-safe regex for concurrent skill parsing
@@ -191,7 +189,6 @@ std::pair<nlohmann::json, std::string> SkillsLoader::parseFrontmatter(const std:
     return {metadata, body};
 }
 
-// determine skill source tier from its path
 std::string SkillsLoader::resolveSource(const std::string &path) const
 {
     if (path.find("embedded:") == 0)
@@ -207,7 +204,6 @@ std::string SkillsLoader::resolveSource(const std::string &path) const
     return "workspace";
 }
 
-// check if skill platform requirement matches current platform
 bool SkillsLoader::matchesPlatform(const nlohmann::json &metadata)
 {
     if (!metadata.contains("platform"))
@@ -243,7 +239,6 @@ bool SkillsLoader::matchesPlatform(const nlohmann::json &metadata)
     return true;
 }
 
-// read skill content from embedded resources or filesystem
 std::string SkillsLoader::readSkillContent(const std::string &path)
 {
     if (path.find("embedded:") == 0)
@@ -264,7 +259,6 @@ std::string SkillsLoader::readSkillContent(const std::string &path)
     return buf.str();
 }
 
-// list all available skills with metadata
 std::vector<SkillInfo> SkillsLoader::listSkills() const
 {
     std::vector<SkillInfo> result;
@@ -314,20 +308,21 @@ std::vector<SkillInfo> SkillsLoader::listSkills() const
     }
 
     // sort by short name (after last slash)
-    std::sort(result.begin(), result.end(), [](const SkillInfo &a, const SkillInfo &b)
-              {
+    // clang-format off
+    std::sort(result.begin(), result.end(), [](const SkillInfo &a, const SkillInfo &b) {
         auto aName = a.name;
         auto bName = b.name;
         auto aSlash = aName.rfind('/');
         auto bSlash = bName.rfind('/');
         auto aShort = (aSlash != std::string::npos) ? aName.substr(aSlash + 1) : aName;
         auto bShort = (bSlash != std::string::npos) ? bName.substr(bSlash + 1) : bName;
-        return aShort < bShort; });
+        return aShort < bShort;
+    });
+    // clang-format on
 
     return result;
 }
 
-// load skill body content (without frontmatter), trimmed
 std::string SkillsLoader::loadSkill(const std::string &name) const
 {
     auto skills = discoverSkills();
@@ -367,7 +362,6 @@ std::string SkillsLoader::loadSkill(const std::string &name) const
     }
 }
 
-// load raw skill content including frontmatter
 std::string SkillsLoader::loadSkillRaw(const std::string &name) const
 {
     auto skills = discoverSkills();
@@ -389,7 +383,6 @@ std::string SkillsLoader::loadSkillRaw(const std::string &name) const
     }
 }
 
-// save skill content to disk (rejects embedded skills)
 std::string SkillsLoader::saveSkill(const std::string &name, const std::string &content)
 {
     auto skills = discoverSkills();
@@ -423,7 +416,6 @@ std::string SkillsLoader::saveSkill(const std::string &name, const std::string &
     }
 }
 
-// delete skill directory from disk (rejects embedded skills)
 std::string SkillsLoader::deleteSkill(const std::string &name)
 {
     auto skills = discoverSkills();
@@ -448,8 +440,7 @@ std::string SkillsLoader::deleteSkill(const std::string &name)
         auto projCanonical = projectSkillsDir.empty() ? "" : fs::weakly_canonical(projectSkillsDir).string();
         auto wsCanonical = workspaceSkillsDir.empty() ? "" : fs::weakly_canonical(workspaceSkillsDir).string();
 
-        if ((!projCanonical.empty() && canonical == projCanonical) ||
-            (!wsCanonical.empty() && canonical == wsCanonical))
+        if ((!projCanonical.empty() && canonical == projCanonical) || (!wsCanonical.empty() && canonical == wsCanonical))
         {
             return "Cannot delete skills base directory";
         }
@@ -463,7 +454,6 @@ std::string SkillsLoader::deleteSkill(const std::string &name)
     }
 }
 
-// collect skills marked always=true for inline inclusion in prompts
 std::vector<std::pair<std::string, std::string>> SkillsLoader::getAlwaysSkills() const
 {
     std::vector<std::pair<std::string, std::string>> result;
@@ -512,7 +502,6 @@ std::vector<std::pair<std::string, std::string>> SkillsLoader::getAlwaysSkills()
     return result;
 }
 
-// build xml summary of all skills for system prompt
 std::string SkillsLoader::buildSkillsSummary() const
 {
     auto skills = listSkills();

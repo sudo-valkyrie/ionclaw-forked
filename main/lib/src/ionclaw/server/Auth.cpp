@@ -58,13 +58,13 @@ Auth::Auth(const ionclaw::config::Config &config)
         }
 
         secret = oss.str();
-        spdlog::warn("No server credential configured, using ephemeral JWT secret");
+        spdlog::warn("[Auth] No server credential configured, using ephemeral JWT secret");
     }
 }
 
 void Auth::reload(const ionclaw::config::Config &config)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex);
 
     auto webCredIt = config.credentials.find(config.webClient.credential);
 
@@ -86,11 +86,11 @@ void Auth::reload(const ionclaw::config::Config &config)
 
 std::string Auth::login(const std::string &username, const std::string &password)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex);
 
     if (username != validUsername || password != validPassword)
     {
-        throw std::runtime_error("Invalid username or password");
+        throw std::runtime_error("[Auth] Invalid username or password");
     }
 
     nlohmann::json payload = {{"sub", username}};
@@ -99,7 +99,7 @@ std::string Auth::login(const std::string &username, const std::string &password
 
 bool Auth::verifyToken(const std::string &token) const
 {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex);
     return ionclaw::util::JwtHelper::isValid(token, secret);
 }
 
@@ -107,8 +107,7 @@ std::string Auth::extractBearerToken(const std::string &authHeader)
 {
     const std::string prefix = "Bearer ";
 
-    if (authHeader.size() > prefix.size() &&
-        authHeader.substr(0, prefix.size()) == prefix)
+    if (authHeader.size() > prefix.size() && authHeader.substr(0, prefix.size()) == prefix)
     {
         return authHeader.substr(prefix.size());
     }
@@ -136,10 +135,7 @@ bool Auth::isPublicPath(const std::string &path, const std::string &method)
         static const std::string publicFilePrefix = "/api/files/public/";
         static const std::string publicDownloadPrefix = "/api/files/download/public/";
 
-        if ((path.size() >= publicFilePrefix.size() &&
-             path.compare(0, publicFilePrefix.size(), publicFilePrefix) == 0) ||
-            (path.size() >= publicDownloadPrefix.size() &&
-             path.compare(0, publicDownloadPrefix.size(), publicDownloadPrefix) == 0))
+        if ((path.size() >= publicFilePrefix.size() && path.compare(0, publicFilePrefix.size(), publicFilePrefix) == 0) || (path.size() >= publicDownloadPrefix.size() && path.compare(0, publicDownloadPrefix.size(), publicDownloadPrefix) == 0))
         {
             return true;
         }

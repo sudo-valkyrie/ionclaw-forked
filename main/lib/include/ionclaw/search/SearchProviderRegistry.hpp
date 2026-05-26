@@ -23,7 +23,7 @@ public:
 
 private:
     SearchProviderRegistry();
-    std::unordered_map<std::string, std::unique_ptr<SearchProvider>> providers_;
+    std::unordered_map<std::string, std::unique_ptr<SearchProvider>> providers;
 };
 
 } // namespace search

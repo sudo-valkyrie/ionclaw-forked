@@ -16,8 +16,7 @@ namespace provider
 class AnthropicProvider final : public LlmProvider
 {
 public:
-    AnthropicProvider(const std::string &apiKey, const std::string &baseUrl = "https://api.anthropic.com",
-                      int timeout = 60, const std::map<std::string, std::string> &extraHeaders = {});
+    AnthropicProvider(const std::string &apiKey, const std::string &baseUrl = "https://api.anthropic.com", int timeout = 60, const std::map<std::string, std::string> &extraHeaders = {});
 
     ChatCompletionResponse chat(const ChatCompletionRequest &request) override;
     void chatStream(const ChatCompletionRequest &request, StreamCallback callback) override;
@@ -32,12 +31,8 @@ private:
     nlohmann::json buildRequestBody(const ChatCompletionRequest &request) const;
     nlohmann::json convertToolsToAnthropicFormat(const std::vector<nlohmann::json> &tools) const;
     ChatCompletionResponse parseResponse(const nlohmann::json &response) const;
-    void parseStreamEvent(const std::string &eventType, const nlohmann::json &data,
-                          StreamCallback &callback, std::vector<ToolCall> &pendingToolCalls,
-                          std::string &currentToolCallId, std::string &currentToolCallName,
-                          std::string &currentToolCallArgs) const;
+    void parseStreamEvent(const std::string &eventType, const nlohmann::json &data, StreamCallback &callback, std::vector<ToolCall> &pendingToolCalls, std::string &currentToolCallId, std::string &currentToolCallName, std::string &currentToolCallArgs) const;
 
-    // message processing
     static void sanitizeMessages(nlohmann::json &messages);
     static nlohmann::json validateTranscript(const nlohmann::json &messages);
     static std::string normalizeStopReason(const std::string &stopReason);

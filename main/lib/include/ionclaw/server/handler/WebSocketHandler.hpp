@@ -18,10 +18,7 @@ namespace handler
 class WebSocketHandler final : public Poco::Net::HTTPRequestHandler
 {
 public:
-    WebSocketHandler(
-        std::shared_ptr<Auth> auth,
-        std::shared_ptr<WebSocketManager> wsManager,
-        std::shared_ptr<Routes> routes);
+    WebSocketHandler(std::shared_ptr<Auth> auth, std::shared_ptr<WebSocketManager> wsManager, std::shared_ptr<Routes> routes);
 
     void handleRequest(Poco::Net::HTTPServerRequest &req, Poco::Net::HTTPServerResponse &resp) override;
 

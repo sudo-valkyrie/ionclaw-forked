@@ -16,13 +16,7 @@ namespace heartbeat
 class HeartbeatService
 {
 public:
-    HeartbeatService(
-        std::shared_ptr<ionclaw::bus::MessageBus> bus,
-        std::shared_ptr<ionclaw::session::SessionManager> sessionManager,
-        const std::string &workspacePath,
-        int interval,
-        bool enabled,
-        const std::string &agent);
+    HeartbeatService(std::shared_ptr<ionclaw::bus::MessageBus> bus, std::shared_ptr<ionclaw::session::SessionManager> sessionManager, const std::string &workspacePath, int interval, bool enabled, const std::string &agent);
 
     void start();
     void stop();

@@ -14,7 +14,7 @@ namespace agent
 struct AnnounceEntry
 {
     std::string runId;
-    std::string announceId; // idempotency key: childSessionKey:childRunId
+    std::string announceId;
     std::string requesterSessionKey;
     std::string message;
     int retries = 0;
@@ -30,15 +30,14 @@ public:
 
     static std::string buildAnnounceId(const std::string &childSessionKey, const std::string &childRunId);
 
-    bool enqueue(const std::string &runId, const std::string &requesterSessionKey,
-                 const std::string &message, const std::string &announceId = "");
+    bool enqueue(const std::string &runId, const std::string &requesterSessionKey, const std::string &message, const std::string &announceId = "");
     std::vector<AnnounceEntry> drain(const std::string &sessionKey);
     void markRetry(const std::string &runId);
     void processExpired();
 
 private:
     std::vector<AnnounceEntry> entries;
-    std::map<std::string, std::chrono::steady_clock::time_point> seenIds; // idempotency tracking
+    std::map<std::string, std::chrono::steady_clock::time_point> seenIds;
     mutable std::mutex mutex;
 
     static constexpr int SEEN_ID_TTL_SECONDS = 600;

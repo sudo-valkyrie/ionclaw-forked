@@ -147,8 +147,7 @@ void Routes::handleSchedulerCreate(Poco::Net::HTTPServerRequest &req, Poco::Net:
             return;
         }
 
-        auto job = cronService->addJob(
-            name, schedule, message, true, channel, to, deleteAfterRun);
+        auto job = cronService->addJob(name, schedule, message, true, channel, to, deleteAfterRun);
 
         sendJson(resp, {{"status", "ok"}, {"id", job.id}});
     }

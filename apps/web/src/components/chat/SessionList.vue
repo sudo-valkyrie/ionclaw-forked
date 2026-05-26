@@ -18,7 +18,7 @@ const items = computed(() =>
     label: sessionLabel(s.key, s.display_name),
     updatedAt: s.updated_at,
     active: s.key === props.currentSessionId,
-  }))
+  })),
 )
 
 function formatTime(iso) {
@@ -42,8 +42,8 @@ function formatTime(iso) {
         text
         rounded
         size="small"
-        @click="emit('new')"
         title="New session"
+        @click="emit('new')"
       />
     </div>
     <div class="session-list-items">
@@ -54,7 +54,17 @@ function formatTime(iso) {
         @click="emit('select', item.key)"
       >
         <div class="session-item-icon">
-          <i :class="item.channel === 'heartbeat' ? 'pi pi-heart' : item.channel === 'telegram' ? 'pi pi-send' : item.channel === 'mcp' ? 'pi pi-microchip-ai' : 'pi pi-comments'"></i>
+          <i
+            :class="
+              item.channel === 'heartbeat'
+                ? 'pi pi-heart'
+                : item.channel === 'telegram'
+                  ? 'pi pi-send'
+                  : item.channel === 'mcp'
+                    ? 'pi pi-microchip-ai'
+                    : 'pi pi-comments'
+            "
+          ></i>
         </div>
         <div class="session-item-info">
           <span class="session-item-label">{{ item.label }}</span>
@@ -68,8 +78,8 @@ function formatTime(iso) {
           rounded
           size="small"
           class="session-item-delete"
-          @click.stop="emit('delete', item.key)"
           title="Delete session"
+          @click.stop="emit('delete', item.key)"
         />
       </button>
       <div v-if="items.length === 0" class="session-list-empty">

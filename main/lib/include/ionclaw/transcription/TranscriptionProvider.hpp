@@ -33,9 +33,7 @@ public:
     virtual ~TranscriptionProvider() = default;
 
     virtual std::string providerName() const = 0;
-    virtual TranscriptionResult transcribe(const std::string &audioData,
-                                           const std::string &format,
-                                           const TranscriptionContext &context) const = 0;
+    virtual TranscriptionResult transcribe(const std::string &audioData, const std::string &format, const TranscriptionContext &context) const = 0;
 };
 
 } // namespace transcription

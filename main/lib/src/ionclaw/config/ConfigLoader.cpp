@@ -14,8 +14,6 @@ namespace ionclaw
 namespace config
 {
 
-// environment variable expansion
-
 std::string ConfigLoader::expandEnvVars(const std::string &value)
 {
     // pattern for ${VAR_NAME} environment variable references
@@ -41,8 +39,6 @@ std::string ConfigLoader::expandEnvVars(const std::string &value)
 
     return result;
 }
-
-// yaml node expansion helpers
 
 std::string ConfigLoader::expandStr(const YAML::Node &node, const std::string &defaultValue)
 {
@@ -128,8 +124,6 @@ std::map<std::string, std::string> ConfigLoader::expandStringMap(const YAML::Nod
     return result;
 }
 
-// yaml-json conversion helpers
-
 nlohmann::json ConfigLoader::yamlToJson(const YAML::Node &node)
 {
     if (!node || node.IsNull())
@@ -139,8 +133,7 @@ nlohmann::json ConfigLoader::yamlToJson(const YAML::Node &node)
 
     if (node.IsScalar())
     {
-        // try bool before int: yaml-cpp parses "true"/"false" as both bool and int,
-        // and trying int first would incorrectly convert booleans to 0/1
+        // try bool before int because yaml-cpp accepts "true"/"false" as both and int-first would turn booleans into 0/1
         try
         {
             return node.as<bool>();
@@ -242,8 +235,6 @@ void ConfigLoader::emitJson(YAML::Emitter &out, const nlohmann::json &j)
     }
 }
 
-// load config from yaml file
-
 Config ConfigLoader::load(const std::string &path)
 {
     YAML::Node root;
@@ -254,7 +245,7 @@ Config ConfigLoader::load(const std::string &path)
     }
     catch (const YAML::Exception &e)
     {
-        throw std::runtime_error("Failed to load config file: " + path + " - " + e.what());
+        throw std::runtime_error("[ConfigLoader] Failed to load config file: " + path + " - " + e.what());
     }
 
     return loadFromNode(root);
@@ -295,7 +286,7 @@ Config ConfigLoader::loadFromNode(const YAML::Node &root)
 
         if (config.server.port < 1 || config.server.port > 65535)
         {
-            throw std::runtime_error("server port must be between 1 and 65535, got: " + std::to_string(config.server.port));
+            throw std::runtime_error("[ConfigLoader] server port must be between 1 and 65535, got: " + std::to_string(config.server.port));
         }
         config.server.publicUrl = expandStr(server["public_url"]);
         config.server.credential = expandStr(server["credential"], config.server.credential);
@@ -405,8 +396,7 @@ Config ConfigLoader::loadFromNode(const YAML::Node &root)
             {
                 for (const auto &pair : byChannel)
                 {
-                    config.messages.queue.byChannel[pair.first.as<std::string>()] =
-                        expandStr(pair.second);
+                    config.messages.queue.byChannel[pair.first.as<std::string>()] = expandStr(pair.second);
                 }
             }
         }
@@ -446,8 +436,7 @@ Config ConfigLoader::loadFromNode(const YAML::Node &root)
                     {
                         try
                         {
-                            agent.agentParams.channelHistoryLimits[it->first.as<std::string>()] =
-                                it->second.as<int>();
+                            agent.agentParams.channelHistoryLimits[it->first.as<std::string>()] = it->second.as<int>();
                         }
                         catch (const YAML::BadConversion &)
                         {
@@ -576,8 +565,6 @@ Config ConfigLoader::loadFromNode(const YAML::Node &root)
     return config;
 }
 
-// serialize config to yaml string
-
 std::string ConfigLoader::toYaml(const Config &config)
 {
     YAML::Emitter out;
@@ -661,11 +648,7 @@ std::string ConfigLoader::toYaml(const Config &config)
     }
 
     // messages
-    if (config.messages.queue.mode != "collect" ||
-        config.messages.queue.debounceMs != 1000 ||
-        config.messages.queue.cap != 20 ||
-        config.messages.queue.dropPolicy != "summarize" ||
-        !config.messages.queue.byChannel.empty())
+    if (config.messages.queue.mode != "collect" || config.messages.queue.debounceMs != 1000 || config.messages.queue.cap != 20 || config.messages.queue.dropPolicy != "summarize" || !config.messages.queue.byChannel.empty())
     {
         out << YAML::Key << "messages" << YAML::Value << YAML::BeginMap;
         out << YAML::Key << "queue" << YAML::Value << YAML::BeginMap;
@@ -796,9 +779,7 @@ std::string ConfigLoader::toYaml(const Config &config)
             }
 
             // subagent limits
-            if (agent.subagentLimits.maxDepth != 5 || agent.subagentLimits.maxChildren != 5 ||
-                agent.subagentLimits.defaultTimeoutSeconds > 0 ||
-                !agent.subagentLimits.allowAgents.empty())
+            if (agent.subagentLimits.maxDepth != 5 || agent.subagentLimits.maxChildren != 5 || agent.subagentLimits.defaultTimeoutSeconds > 0 || !agent.subagentLimits.allowAgents.empty())
             {
                 out << YAML::Key << "subagent_limits" << YAML::Value << YAML::BeginMap;
                 out << YAML::Key << "max_depth" << YAML::Value << agent.subagentLimits.maxDepth;
@@ -888,9 +869,7 @@ std::string ConfigLoader::toYaml(const Config &config)
                 out << YAML::Key << "token" << YAML::Value << cred.token;
             }
 
-            // emit additional fields from raw that aren't covered by structured fields
-            // (e.g. consumer_key, consumer_secret, access_token, access_token_secret for oauth1;
-            //  header_name, value for header type)
+            // emit any extra raw fields beyond the structured ones, such as oauth1 or header-type keys
             static const std::set<std::string> knownFields = {"type", "key", "username", "password", "token"};
 
             if (cred.raw.is_object())
@@ -1026,8 +1005,6 @@ std::string ConfigLoader::toYaml(const Config &config)
     return out.c_str();
 }
 
-// save config to yaml file
-
 void ConfigLoader::save(const Config &config, const std::string &path)
 {
     auto yaml = toYaml(config);
@@ -1036,7 +1013,7 @@ void ConfigLoader::save(const Config &config, const std::string &path)
 
     if (!fout.is_open())
     {
-        throw std::runtime_error("Failed to open file for writing: " + path);
+        throw std::runtime_error("[ConfigLoader] Failed to open file for writing: " + path);
     }
 
     fout << yaml;
@@ -1044,7 +1021,7 @@ void ConfigLoader::save(const Config &config, const std::string &path)
 
     if (!fout.good())
     {
-        throw std::runtime_error("Failed to write config file: " + path);
+        throw std::runtime_error("[ConfigLoader] Failed to write config file: " + path);
     }
 }
 

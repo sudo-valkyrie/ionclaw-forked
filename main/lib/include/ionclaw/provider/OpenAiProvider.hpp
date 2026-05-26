@@ -16,8 +16,7 @@ namespace provider
 class OpenAiProvider final : public LlmProvider
 {
 public:
-    OpenAiProvider(const std::string &apiKey, const std::string &baseUrl = "https://api.openai.com/v1",
-                   int timeout = 60, const std::map<std::string, std::string> &extraHeaders = {});
+    OpenAiProvider(const std::string &apiKey, const std::string &baseUrl = "https://api.openai.com/v1", int timeout = 60, const std::map<std::string, std::string> &extraHeaders = {});
 
     ChatCompletionResponse chat(const ChatCompletionRequest &request) override;
     void chatStream(const ChatCompletionRequest &request, StreamCallback callback) override;
@@ -32,7 +31,6 @@ private:
     nlohmann::json buildRequestBody(const ChatCompletionRequest &request) const;
     ChatCompletionResponse parseResponse(const nlohmann::json &response) const;
 
-    // message processing
     static void sanitizeMessages(nlohmann::json &messages);
     static nlohmann::json validateTranscript(const nlohmann::json &messages);
 };

@@ -99,7 +99,7 @@ TaskState Task::stateFromString(const std::string &str)
         return TaskState::Todo;
     }
 
-    throw std::invalid_argument("Invalid task state: " + str);
+    throw std::invalid_argument("[Task] Invalid task state: " + str);
 }
 
 nlohmann::json Task::toJson() const
@@ -143,6 +143,7 @@ Task Task::fromJson(const nlohmann::json &j)
     t.id = jsonString(j, "id");
     t.title = jsonString(j, "title");
     t.description = jsonString(j, "description");
+
     try
     {
         t.state = Task::stateFromString(jsonString(j, "state"));
@@ -151,6 +152,7 @@ Task Task::fromJson(const nlohmann::json &j)
     {
         t.state = TaskState::Todo;
     }
+
     t.channel = jsonString(j, "channel");
     t.chatId = jsonString(j, "chat_id");
     t.agentName = jsonString(j, "agent_name");

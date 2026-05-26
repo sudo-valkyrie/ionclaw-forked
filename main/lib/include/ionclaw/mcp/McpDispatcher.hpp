@@ -44,13 +44,7 @@ using SseCallback = std::function<bool(const nlohmann::json &event)>;
 class McpDispatcher
 {
 public:
-    McpDispatcher(
-        std::shared_ptr<ionclaw::agent::Orchestrator> orchestrator,
-        std::shared_ptr<ionclaw::session::SessionManager> sessionManager,
-        std::shared_ptr<ionclaw::task::TaskManager> taskManager,
-        std::shared_ptr<ionclaw::bus::MessageBus> bus,
-        std::shared_ptr<ionclaw::bus::EventDispatcher> dispatcher,
-        std::shared_ptr<ionclaw::config::Config> config);
+    McpDispatcher(std::shared_ptr<ionclaw::agent::Orchestrator> orchestrator, std::shared_ptr<ionclaw::session::SessionManager> sessionManager, std::shared_ptr<ionclaw::task::TaskManager> taskManager, std::shared_ptr<ionclaw::bus::MessageBus> bus, std::shared_ptr<ionclaw::bus::EventDispatcher> dispatcher, std::shared_ptr<ionclaw::config::Config> config);
 
     void enable();
     void disable();
@@ -63,11 +57,7 @@ public:
     bool hasSession(const std::string &id) const;
     void closeSession(const std::string &id);
 
-    // dispatch a JSON-RPC request; sseCallback is non-null for streaming responses
-    nlohmann::json dispatch(
-        const std::string &sessionId,
-        const JsonRpcRequest &request,
-        SseCallback *sseCallback);
+    nlohmann::json dispatch(const std::string &sessionId, const JsonRpcRequest &request, SseCallback *sseCallback);
 
 private:
     nlohmann::json handleInitialize(const std::string &sessionId, const JsonRpcRequest &req);
@@ -92,11 +82,7 @@ private:
     nlohmann::json resourceSession(const std::string &chatId);
     nlohmann::json resourceAgents();
 
-    static nlohmann::json toolSchema(
-        const std::string &name,
-        const std::string &description,
-        const nlohmann::json &properties,
-        const std::vector<std::string> &required);
+    static nlohmann::json toolSchema(const std::string &name, const std::string &description, const nlohmann::json &properties, const std::vector<std::string> &required);
 
     std::shared_ptr<ionclaw::agent::Orchestrator> orchestrator;
     std::shared_ptr<ionclaw::session::SessionManager> sessionManager;
@@ -105,9 +91,8 @@ private:
     std::shared_ptr<ionclaw::bus::EventDispatcher> dispatcher;
     std::shared_ptr<ionclaw::config::Config> config;
 
-    void reapIdleSessionsLocked(); // assumes sessionsMutex is already held
+    void reapIdleSessionsLocked();
 
-    // starts disabled; ChannelManager::startMcp() calls enable()
     std::atomic<bool> enabled{false};
     mutable std::mutex sessionsMutex;
     std::map<std::string, McpSession> sessions;

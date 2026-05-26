@@ -11,32 +11,32 @@ import './assets/main.css'
 import router from './router'
 
 const AppPreset = definePreset(Aura, {
-    semantic: {
-        primary: palette('#0A8DCF')
-    }
+  semantic: {
+    primary: palette('#0A8DCF'),
+  },
 })
 
 const app = createApp(App)
 app.use(createPinia())
 app.use(router)
 app.use(PrimeVue, {
-    theme: {
-        preset: AppPreset,
-        options: {
-            darkModeSelector: '.dark-mode',
-            cssLayer: {
-                name: 'primevue',
-                order: 'theme, base, primevue'
-            }
-        }
-    }
+  theme: {
+    preset: AppPreset,
+    options: {
+      darkModeSelector: '.dark-mode',
+      cssLayer: {
+        name: 'primevue',
+        order: 'theme, base, primevue',
+      },
+    },
+  },
 })
 app.use(ToastService)
 app.use(ConfirmationService)
 app.mount('#app')
 
 if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/app/sw.js', { scope: '/app/' })
-    })
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/app/sw.js', { scope: '/app/' })
+  })
 }

@@ -11,9 +11,12 @@ const props = defineProps({
 const emit = defineEmits(['save'])
 const editContent = ref(props.content)
 
-watch(() => props.content, (val) => {
-  editContent.value = val
-})
+watch(
+  () => props.content,
+  (val) => {
+    editContent.value = val
+  },
+)
 
 function save() {
   emit('save', editContent.value)
@@ -28,11 +31,7 @@ function save() {
         <Button label="Save" icon="pi pi-save" size="small" @click="save" />
       </div>
     </div>
-    <Textarea
-      v-model="editContent"
-      class="editor-textarea"
-      :rows="30"
-    />
+    <Textarea v-model="editContent" class="editor-textarea" :rows="30" />
   </div>
 </template>
 

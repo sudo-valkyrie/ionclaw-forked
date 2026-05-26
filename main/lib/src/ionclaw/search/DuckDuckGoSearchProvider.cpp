@@ -29,8 +29,7 @@ std::string DuckDuckGoSearchProvider::search(const std::string &query, int count
 
     if (response.statusCode != 200)
     {
-        return "Error: DuckDuckGo API returned HTTP " + std::to_string(response.statusCode) +
-               ": " + ionclaw::util::StringHelper::utf8SafeTruncate(response.body, 500);
+        return "Error: DuckDuckGo API returned HTTP " + std::to_string(response.statusCode) + ": " + ionclaw::util::StringHelper::utf8SafeTruncate(response.body, 500);
     }
 
     auto json = nlohmann::json::parse(response.body, nullptr, false);
@@ -46,45 +45,56 @@ std::string DuckDuckGoSearchProvider::search(const std::string &query, int count
 
     std::ostringstream output;
     int idx = 1;
+
     if (!abstractText.empty())
     {
         output << idx << ". " << json.value("Heading", "Result") << "\n"
                << "   " << abstractText << "\n";
+
         if (!abstractUrl.empty())
         {
             output << "   URL: " << abstractUrl << "\n";
         }
+
         output << "\n";
         ++idx;
     }
 
     int limit = count > 0 ? std::min(count, 10) : 5;
+
     for (const auto &topic : related)
     {
         if (idx > limit)
         {
             break;
         }
+
         std::string text = topic.value("Text", "");
         std::string firstUrl = topic.value("FirstURL", "");
+
         if (text.empty())
         {
             continue;
         }
+
         output << idx << ". " << text << "\n";
+
         if (!firstUrl.empty())
         {
             output << "   URL: " << firstUrl << "\n";
         }
+
         output << "\n";
         ++idx;
     }
 
     std::string result = output.str();
+
     if (result.empty())
     {
         return "No results found for: " + query;
     }
+
     return result;
 }
 

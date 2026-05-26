@@ -12,7 +12,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const darkMode = useDark()
 const base = import.meta.env.BASE_URL
-const logoSrc = computed(() => darkMode.value ? `${base}logo-dark.png` : `${base}logo.png`)
+const logoSrc = computed(() => (darkMode.value ? `${base}logo-dark.png` : `${base}logo.png`))
 
 const loginSchema = [
   { name: 'username', type: 'text', label: 'Username', required: true },
@@ -46,9 +46,9 @@ async function handleLogin() {
         </div>
       </template>
       <template #content>
-        <form @submit.prevent="handleLogin" class="login-form">
+        <form class="login-form" @submit.prevent="handleLogin">
           <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
-          <DynamicForm :schema="loginSchema" v-model="formData" />
+          <DynamicForm v-model="formData" :schema="loginSchema" />
           <Button type="submit" label="Login" icon="pi pi-sign-in" :loading="loading" class="w-full" />
         </form>
       </template>

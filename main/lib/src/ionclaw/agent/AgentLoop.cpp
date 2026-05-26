@@ -30,7 +30,6 @@ namespace ionclaw
 namespace agent
 {
 
-// graduated thinking level downgrade: high->medium->low->(empty = remove)
 std::string AgentLoop::pickFallbackThinkingLevel(const std::string &current)
 {
     if (current == "high") {
@@ -44,10 +43,7 @@ std::string AgentLoop::pickFallbackThinkingLevel(const std::string &current)
     return "";
 }
 
-// flush synthetic error results for tool calls that were not completed (e.g. abort/stop mid-batch)
-void AgentLoop::flushAbandonedToolCalls(
-    std::vector<ionclaw::provider::Message> &messages,
-    const std::vector<ionclaw::provider::ToolCall> &toolCalls)
+void AgentLoop::flushAbandonedToolCalls(std::vector<ionclaw::provider::Message> &messages, const std::vector<ionclaw::provider::ToolCall> &toolCalls)
 {
     for (size_t ti = 0; ti < toolCalls.size(); ++ti)
     {
@@ -67,7 +63,6 @@ void AgentLoop::flushAbandonedToolCalls(
     }
 }
 
-// send a response for built-in commands (/new, /reset, /help) to all channels
 void AgentLoop::sendCommandResponse(const ionclaw::bus::InboundMessage &message, const std::string &sessionKey, const std::string &taskId, const std::string &agentName, const std::string &responseText, AgentEventCallback &callback)
 {
     if (!taskId.empty())
@@ -127,7 +122,6 @@ void AgentLoop::sendCommandResponse(const ionclaw::bus::InboundMessage &message,
     callback(streamEndEvent);
 }
 
-// truncate text with ellipsis if exceeding max length
 std::string AgentLoop::truncateText(const std::string &s, size_t maxLen)
 {
     if (s.size() <= maxLen)
@@ -137,14 +131,12 @@ std::string AgentLoop::truncateText(const std::string &s, size_t maxLen)
     return ionclaw::util::StringHelper::utf8SafeTruncate(s, maxLen) + "...";
 }
 
-// strip incomplete trailing directive markers like [[...]]
 std::string AgentLoop::stripTrailingDirectives(const std::string &text)
 {
     static thread_local const std::regex directivePattern(R"(\[\[[^\]]*\]?\]?\s*$)");
     return std::regex_replace(text, directivePattern, "");
 }
 
-// estimate total byte size of messages for prompt size validation
 size_t AgentLoop::estimatePromptBytes(const std::vector<ionclaw::provider::Message> &messages)
 {
     size_t total = 0;
@@ -168,7 +160,6 @@ size_t AgentLoop::estimatePromptBytes(const std::vector<ionclaw::provider::Messa
     return total;
 }
 
-// format a human-readable summary for a tool call
 std::string AgentLoop::formatToolSummary(const std::string &name, const nlohmann::json &args)
 {
     const size_t maxSummary = 200;
@@ -285,7 +276,6 @@ std::string AgentLoop::formatToolSummary(const std::string &name, const nlohmann
     return "";
 }
 
-// resolve media file paths to base64 content blocks for the LLM
 nlohmann::json AgentLoop::resolveMedia(const std::vector<std::string> &paths, const std::string &projectRoot)
 {
     namespace fs = std::filesystem;
@@ -310,7 +300,7 @@ nlohmann::json AgentLoop::resolveMedia(const std::vector<std::string> &paths, co
 
         if (!fs::exists(fullPath) || !fs::is_regular_file(fullPath))
         {
-            spdlog::warn("media file not found: {}", fullPath);
+            spdlog::warn("[AgentLoop] media file not found: {}", fullPath);
             continue;
         }
 
@@ -327,7 +317,7 @@ nlohmann::json AgentLoop::resolveMedia(const std::vector<std::string> &paths, co
 
             if (!provider)
             {
-                spdlog::warn("[transcription] no provider found for '{}', skipping audio", providerName);
+                spdlog::warn("[AgentLoop] no provider found for '{}', skipping audio", providerName);
                 blocks.push_back({{"type", "warning"}, {"text", "Transcription provider '" + providerName + "' not found. Audio was ignored."}});
                 continue;
             }
@@ -337,7 +327,7 @@ nlohmann::json AgentLoop::resolveMedia(const std::vector<std::string> &paths, co
 
             if (!f.is_open())
             {
-                spdlog::warn("[transcription] failed to open: {}", fullPath);
+                spdlog::warn("[AgentLoop] failed to open: {}", fullPath);
                 continue;
             }
 
@@ -346,7 +336,7 @@ nlohmann::json AgentLoop::resolveMedia(const std::vector<std::string> &paths, co
 
             if (audioData.empty())
             {
-                spdlog::warn("[transcription] empty audio file: {}", fullPath);
+                spdlog::warn("[AgentLoop] empty audio file: {}", fullPath);
                 continue;
             }
 
@@ -365,28 +355,27 @@ nlohmann::json AgentLoop::resolveMedia(const std::vector<std::string> &paths, co
                 }
                 else
                 {
-                    spdlog::warn("[transcription] empty result for: {}", fullPath);
+                    spdlog::warn("[AgentLoop] empty result for: {}", fullPath);
                 }
             }
             catch (const std::exception &e)
             {
-                spdlog::error("[transcription] error: {}", e.what());
+                spdlog::error("[AgentLoop] error: {}", e.what());
             }
         }
         else
         {
-            spdlog::warn("[transcription] no model configured, skipping audio: {}", fullPath);
+            spdlog::warn("[AgentLoop] no model configured, skipping audio: {}", fullPath);
             blocks.push_back({{"type", "warning"}, {"text", "No transcription model configured. Audio was ignored. Configure it in Settings."}});
         }
     }
 
-    spdlog::debug("[resolveMedia] resolved {} block(s)", blocks.size());
+    spdlog::debug("[AgentLoop] resolved {} block(s)", blocks.size());
     return blocks;
 }
 
 // usage tracker
 
-// accumulate token usage from a response
 void UsageTracker::record(const nlohmann::json &usage)
 {
     if (!usage.is_object())
@@ -435,33 +424,14 @@ nlohmann::json UsageTracker::toJson() const
 
 // agent loop
 
-AgentLoop::AgentLoop(
-    std::shared_ptr<ionclaw::provider::LlmProvider> provider,
-    std::shared_ptr<ionclaw::tool::ToolRegistry> toolRegistry,
-    std::shared_ptr<ionclaw::session::SessionManager> sessionManager,
-    std::shared_ptr<ionclaw::task::TaskManager> taskManager,
-    std::shared_ptr<ionclaw::bus::EventDispatcher> dispatcher,
-    const ionclaw::config::AgentConfig &agentConfig,
-    const std::string &agentName)
-    : provider(std::move(provider))
-    , toolRegistry(std::move(toolRegistry))
-    , sessionManager(std::move(sessionManager))
-    , taskManager(std::move(taskManager))
-    , dispatcher(std::move(dispatcher))
-    , agentConfig(agentConfig)
-    , agentName(agentName)
+AgentLoop::AgentLoop(std::shared_ptr<ionclaw::provider::LlmProvider> provider, std::shared_ptr<ionclaw::tool::ToolRegistry> toolRegistry, std::shared_ptr<ionclaw::session::SessionManager> sessionManager, std::shared_ptr<ionclaw::task::TaskManager> taskManager, std::shared_ptr<ionclaw::bus::EventDispatcher> dispatcher, const ionclaw::config::AgentConfig &agentConfig, const std::string &agentName) : provider(std::move(provider)) , toolRegistry(std::move(toolRegistry)) , sessionManager(std::move(sessionManager)) , taskManager(std::move(taskManager)) , dispatcher(std::move(dispatcher)) , agentConfig(agentConfig) , agentName(agentName)
 {
 }
 
-void AgentLoop::processMessage(
-    const ionclaw::bus::InboundMessage &message,
-    const std::string &systemPrompt,
-    AgentEventCallback callback)
+void AgentLoop::processMessage(const ionclaw::bus::InboundMessage &message, const std::string &systemPrompt, AgentEventCallback callback)
 {
     // use agent-scoped session key for storage, base key for event routing
-    auto sessionKey = (message.metadata.contains("agent_session_key") && message.metadata["agent_session_key"].is_string())
-                          ? message.metadata["agent_session_key"].get<std::string>()
-                          : message.sessionKey();
+    auto sessionKey = (message.metadata.contains("agent_session_key") && message.metadata["agent_session_key"].is_string()) ? message.metadata["agent_session_key"].get<std::string>() : message.sessionKey();
     auto baseKey = message.sessionKey();
 
     // per-turn state lives on the stack, safe for concurrent calls on shared AgentLoop
@@ -492,9 +462,7 @@ void AgentLoop::processMessage(
     }
 
     // check if the channel already saved and broadcast the message
-    const bool messageSaved = message.metadata.contains("message_saved") &&
-                              message.metadata["message_saved"].is_boolean() &&
-                              message.metadata["message_saved"].get<bool>();
+    const bool messageSaved = message.metadata.contains("message_saved") && message.metadata["message_saved"].is_boolean() && message.metadata["message_saved"].get<bool>();
 
     // broadcast user message for non-web channels (skip when the channel already broadcast it)
     if (message.channel != "web" && !messageSaved)
@@ -526,9 +494,7 @@ void AgentLoop::processMessage(
     // handle /help command
     if (content == "/help")
     {
-        sendCommandResponse(message, baseKey, taskId, agentName,
-                            "Available commands:\n  /new - Start a new session\n  /reset - Reset the current session\n  /help - Show this help message\n",
-                            callback);
+        sendCommandResponse(message, baseKey, taskId, agentName, "Available commands:\n  /new - Start a new session\n  /reset - Reset the current session\n  /help - Show this help message\n", callback);
         return;
     }
 
@@ -626,9 +592,7 @@ void AgentLoop::processMessage(
         // channels pre-save under base key for immediate persistence; we also persist
         // under the agent-scoped key so each agent has its own conversation history
         // skip synthetic messages (steer injections, wake prompts) — not real user input
-        bool isSynthetic = message.metadata.contains("synthetic") &&
-                           message.metadata["synthetic"].is_boolean() &&
-                           message.metadata["synthetic"].get<bool>();
+        bool isSynthetic = message.metadata.contains("synthetic") && message.metadata["synthetic"].is_boolean() && message.metadata["synthetic"].get<bool>();
 
         if (!isSynthetic)
         {
@@ -728,9 +692,7 @@ void AgentLoop::processMessage(
         // then fall back to last sent content from a previous turn
         if (responseText == "[SILENT]")
         {
-            responseText = !messageToolDeliveredContent.empty() ? messageToolDeliveredContent
-                           : !turnState.lastSentContent.empty() ? turnState.lastSentContent
-                                                                : "";
+            responseText = !messageToolDeliveredContent.empty() ? messageToolDeliveredContent : !turnState.lastSentContent.empty() ? turnState.lastSentContent : "";
         }
         else if (responseText.empty() && !messageToolDeliveredContent.empty())
         {
@@ -831,8 +793,7 @@ void AgentLoop::processMessage(
             auto providerName = slashPos != std::string::npos ? agentConfig.model.substr(0, slashPos) : agentConfig.model;
             errorText = "Could not connect to provider '" + providerName + "': the host was not found. "
                                                                            "Please check that the provider's base_url is correct and the service is reachable. "
-                                                                           "(model: " +
-                        agentConfig.model + ")";
+                                                                           "(model: " + agentConfig.model + ")";
         }
         else if (errorCategory == "auth")
         {
@@ -904,15 +865,7 @@ void AgentLoop::processMessage(
     }
 }
 
-std::pair<std::string, std::vector<nlohmann::json>> AgentLoop::runAgentLoop(
-    std::vector<ionclaw::provider::Message> &messages,
-    const std::string &taskId,
-    const std::string &chatId,
-    const std::string &sessionKey,
-    const std::string &effectiveName,
-    const ionclaw::tool::ToolContext &toolContext,
-    AgentEventCallback &callback,
-    TurnState &turnState)
+std::pair<std::string, std::vector<nlohmann::json>> AgentLoop::runAgentLoop(std::vector<ionclaw::provider::Message> &messages, const std::string &taskId, const std::string &chatId, const std::string &sessionKey, const std::string &effectiveName, const ionclaw::tool::ToolContext &toolContext, AgentEventCallback &callback, TurnState &turnState)
 {
     auto maxIterations = agentConfig.agentParams.maxIterations;
 
@@ -996,8 +949,7 @@ std::pair<std::string, std::vector<nlohmann::json>> AgentLoop::runAgentLoop(
 
         if (contextGuard.level == ContextGuardLevel::Critical)
         {
-            spdlog::warn("[AgentLoop] Context window critically low ({:.0f}% used, ~{} tokens remaining), forcing compaction",
-                         contextGuard.usageRatio * 100, contextGuard.modelLimit - contextGuard.estimatedTokens);
+            spdlog::warn("[AgentLoop] Context window critically low ({:.0f}% used, ~{} tokens remaining), forcing compaction", contextGuard.usageRatio * 100, contextGuard.modelLimit - contextGuard.estimatedTokens);
             compactWithHooks(messages, sessionKey, taskId, turnModelParams, turnState, &toolContext);
         }
         else if (contextGuard.level == ContextGuardLevel::Warning)
@@ -1055,8 +1007,7 @@ std::pair<std::string, std::vector<nlohmann::json>> AgentLoop::runAgentLoop(
             if (category == "context_overflow" && contextOverflowAttempts < MAX_OVERFLOW_COMPACTION_ATTEMPTS)
             {
                 contextOverflowAttempts++;
-                spdlog::warn("[AgentLoop] Context overflow from LLM (attempt {}/{}), recovering (task {})",
-                             contextOverflowAttempts, MAX_OVERFLOW_COMPACTION_ATTEMPTS, taskId);
+                spdlog::warn("[AgentLoop] Context overflow from LLM (attempt {}/{}), recovering (task {})", contextOverflowAttempts, MAX_OVERFLOW_COMPACTION_ATTEMPTS, taskId);
 
                 if (contextOverflowAttempts > 1)
                 {
@@ -1069,8 +1020,7 @@ std::pair<std::string, std::vector<nlohmann::json>> AgentLoop::runAgentLoop(
 
                             // utf-8 safe tail: skip forward past continuation bytes
                             size_t tailStart = msg.content.size() > 500 ? msg.content.size() - 500 : 0;
-                            while (tailStart < msg.content.size() &&
-                                   (static_cast<unsigned char>(msg.content[tailStart]) & 0xC0) == 0x80)
+                            while (tailStart < msg.content.size() && (static_cast<unsigned char>(msg.content[tailStart]) & 0xC0) == 0x80)
                             {
                                 ++tailStart;
                             }
@@ -1167,9 +1117,7 @@ std::pair<std::string, std::vector<nlohmann::json>> AgentLoop::runAgentLoop(
                 }
             }
 
-            auto text = response.content.empty()
-                            ? "My response was cut short due to token limits."
-                            : response.content;
+            auto text = response.content.empty() ? "My response was cut short due to token limits." : response.content;
             return {text, blocks};
         }
 
@@ -1200,9 +1148,7 @@ std::pair<std::string, std::vector<nlohmann::json>> AgentLoop::runAgentLoop(
                     }
                 }
 
-                auto text = response.content.empty()
-                                ? "I seem to be repeating the same actions. Let me stop here."
-                                : response.content;
+                auto text = response.content.empty() ? "I seem to be repeating the same actions. Let me stop here." : response.content;
                 return {text, blocks};
             }
 
@@ -1217,8 +1163,7 @@ std::pair<std::string, std::vector<nlohmann::json>> AgentLoop::runAgentLoop(
             }
 
             // add assistant message with tool calls
-            ContextBuilder::addAssistantMessage(
-                messages, response.content, response.toolCalls, response.reasoningContent);
+            ContextBuilder::addAssistantMessage(messages, response.content, response.toolCalls, response.reasoningContent);
 
             // execute tools
             for (const auto &tc : response.toolCalls)
@@ -1266,9 +1211,7 @@ std::pair<std::string, std::vector<nlohmann::json>> AgentLoop::runAgentLoop(
 
                     if (hookCtx.blocked)
                     {
-                        auto reason = hookCtx.blockReason.empty()
-                                          ? "Tool call blocked by hook"
-                                          : hookCtx.blockReason;
+                        auto reason = hookCtx.blockReason.empty() ? "Tool call blocked by hook" : hookCtx.blockReason;
                         spdlog::info("[AgentLoop] Tool {} blocked by hook: {}", tc.name, reason);
                         ContextBuilder::addToolResult(messages, tc.id, tc.name, "Error: " + reason);
                         continue;
@@ -1425,14 +1368,7 @@ std::pair<std::string, std::vector<nlohmann::json>> AgentLoop::runAgentLoop(
     return {"I've reached my processing limit. Please try again or simplify your request.", blocks};
 }
 
-StreamResult AgentLoop::consumeStream(
-    const std::vector<ionclaw::provider::Message> &messages,
-    const std::string &taskId,
-    const std::string &chatId,
-    const std::string &effectiveName,
-    UsageTracker &usageTracker,
-    AgentEventCallback &callback,
-    const nlohmann::json &modelParams)
+StreamResult AgentLoop::consumeStream(const std::vector<ionclaw::provider::Message> &messages, const std::string &taskId, const std::string &chatId, const std::string &effectiveName, UsageTracker &usageTracker, AgentEventCallback &callback, const nlohmann::json &modelParams)
 {
     StreamResult result;
     result.finishReason = "stop";
@@ -1451,8 +1387,8 @@ StreamResult AgentLoop::consumeStream(
     request.modelParams = modelParams;
 
     // process stream chunks as they arrive
-    provider->chatStream(request, [&](const ionclaw::provider::StreamChunk &chunk)
-                         {
+    // clang-format off
+    provider->chatStream(request, [&](const ionclaw::provider::StreamChunk &chunk) {
         if (stopped.load())
         {
             return;
@@ -1496,7 +1432,9 @@ StreamResult AgentLoop::consumeStream(
             {
                 result.finishReason = chunk.finishReason;
             }
-        } });
+        }
+    });
+    // clang-format on
 
     // assemble content
     std::ostringstream contentStream;
@@ -1561,11 +1499,7 @@ StreamResult AgentLoop::consumeStream(
     return result;
 }
 
-bool AgentLoop::tryMemoryFlush(
-    std::vector<ionclaw::provider::Message> &messages,
-    const ionclaw::tool::ToolContext &toolContext,
-    const nlohmann::json &modelParams,
-    TurnState & /* turnState */)
+bool AgentLoop::tryMemoryFlush(std::vector<ionclaw::provider::Message> &messages, const ionclaw::tool::ToolContext &toolContext, const nlohmann::json &modelParams, TurnState & /* turnState */)
 {
     if (agentConfig.workspace.empty())
     {
@@ -1638,13 +1572,7 @@ bool AgentLoop::tryMemoryFlush(
     return false;
 }
 
-void AgentLoop::compactWithHooks(
-    std::vector<ionclaw::provider::Message> &messages,
-    const std::string &sessionKey,
-    const std::string &taskId,
-    const nlohmann::json &modelParams,
-    TurnState &turnState,
-    const ionclaw::tool::ToolContext *toolContext)
+void AgentLoop::compactWithHooks(std::vector<ionclaw::provider::Message> &messages, const std::string &sessionKey, const std::string &taskId, const nlohmann::json &modelParams, TurnState &turnState, const ionclaw::tool::ToolContext *toolContext)
 {
     if (hookRunnerPtr)
     {

@@ -14,9 +14,7 @@ namespace server
 namespace handler
 {
 
-ApiHandler::ApiHandler(
-    std::shared_ptr<Auth> auth,
-    std::shared_ptr<Routes> routes)
+ApiHandler::ApiHandler(std::shared_ptr<Auth> auth, std::shared_ptr<Routes> routes)
     : auth(auth)
     , routes(routes)
 {
@@ -60,7 +58,7 @@ void ApiHandler::handleRequest(Poco::Net::HTTPServerRequest &req, Poco::Net::HTT
     }
     catch (const std::exception &e)
     {
-        spdlog::error("API error on {}: {}", path, e.what());
+        spdlog::error("[ApiHandler] API error on {}: {}", path, e.what());
         resp.setStatus(Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
         resp.setContentType("application/json");
 

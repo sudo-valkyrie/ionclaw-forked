@@ -13,9 +13,7 @@ namespace server
 namespace handler
 {
 
-McpHandler::McpHandler(
-    std::shared_ptr<Auth> auth,
-    std::shared_ptr<ionclaw::mcp::McpDispatcher> mcpDispatcher)
+McpHandler::McpHandler(std::shared_ptr<Auth> auth, std::shared_ptr<ionclaw::mcp::McpDispatcher> mcpDispatcher)
     : auth(std::move(auth))
     , mcpDispatcher(std::move(mcpDispatcher))
 {
@@ -223,7 +221,7 @@ void McpHandler::handlePost(Poco::Net::HTTPServerRequest &req, Poco::Net::HTTPSe
         }
         catch (const std::exception &e)
         {
-            spdlog::error("[MCP] SSE dispatch exception: {}", e.what());
+            spdlog::error("[McpHandler] SSE dispatch exception: {}", e.what());
             auto errResult = ionclaw::mcp::JsonRpcResponse::err(request.id, -32603, "internal error");
             ostr << "id: " << sessionId << ":" << eventSeq++ << "\n";
             ostr << "event: message\ndata: " << errResult.dump() << "\n\n";
@@ -251,7 +249,7 @@ void McpHandler::handlePost(Poco::Net::HTTPServerRequest &req, Poco::Net::HTTPSe
         }
         catch (const std::exception &e)
         {
-            spdlog::error("[MCP] dispatch exception: {}", e.what());
+            spdlog::error("[McpHandler] dispatch exception: {}", e.what());
             resp.setStatusAndReason(Poco::Net::HTTPResponse::HTTP_OK);
             resp.setContentType("application/json");
             auto &ostr = resp.send();
@@ -304,9 +302,7 @@ void McpHandler::handleGet(Poco::Net::HTTPServerRequest &req, Poco::Net::HTTPSer
     while (ostr.good() && mcpDispatcher->hasSession(sessionId))
     {
         // check maximum SSE connection duration to prevent indefinite thread hold
-        auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
-                           std::chrono::steady_clock::now() - sseStart)
-                           .count();
+        auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - sseStart).count();
 
         if (elapsed >= MAX_SSE_DURATION_SECONDS)
         {

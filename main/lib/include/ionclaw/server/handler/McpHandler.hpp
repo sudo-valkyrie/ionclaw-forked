@@ -19,9 +19,7 @@ namespace handler
 class McpHandler final : public Poco::Net::HTTPRequestHandler
 {
 public:
-    McpHandler(
-        std::shared_ptr<Auth> auth,
-        std::shared_ptr<ionclaw::mcp::McpDispatcher> mcpDispatcher);
+    McpHandler(std::shared_ptr<Auth> auth, std::shared_ptr<ionclaw::mcp::McpDispatcher> mcpDispatcher);
 
     void handleRequest(Poco::Net::HTTPServerRequest &req, Poco::Net::HTTPServerResponse &resp) override;
 

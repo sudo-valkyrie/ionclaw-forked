@@ -23,9 +23,7 @@ const showDeleteConfirm = ref(false)
 const deleteTargetKey = ref('')
 
 const currentLabel = computed(() => {
-  const match = chatStore.sessions.find(
-    (s) => s.key === chatStore.currentSessionId
-  )
+  const match = chatStore.sessions.find((s) => s.key === chatStore.currentSessionId)
   return match ? sessionLabel(match.key, match.display_name) : 'Chat'
 })
 
@@ -100,19 +98,12 @@ function toggleSessions() {
             text
             rounded
             size="small"
-            @click="toggleSessions"
             title="Toggle sessions"
+            @click="toggleSessions"
           />
           <h2>{{ currentLabel }}</h2>
         </div>
-        <Button
-          icon="pi pi-plus"
-          label="New"
-          severity="secondary"
-          text
-          size="small"
-          @click="handleNewSession"
-        />
+        <Button icon="pi pi-plus" label="New" severity="secondary" text size="small" @click="handleNewSession" />
       </div>
       <ChatMessages
         :messages="chatStore.messages"
@@ -122,8 +113,17 @@ function toggleSessions() {
       <ChatInput @send="handleSend" />
     </div>
 
-    <Dialog v-model:visible="showDeleteConfirm" header="Delete Session" :modal="true" :style="{ width: '24rem' }" :breakpoints="{ '768px': '90vw' }">
-      <p>Delete session <strong>{{ deleteTargetLabel }}</strong>?</p>
+    <Dialog
+      v-model:visible="showDeleteConfirm"
+      header="Delete Session"
+      :modal="true"
+      :style="{ width: '24rem' }"
+      :breakpoints="{ '768px': '90vw' }"
+    >
+      <p>
+        Delete session <strong>{{ deleteTargetLabel }}</strong
+        >?
+      </p>
       <template #footer>
         <Button label="Cancel" severity="secondary" text size="small" @click="showDeleteConfirm = false" />
         <Button label="Delete" icon="pi pi-trash" severity="danger" size="small" @click="confirmDeleteSession" />

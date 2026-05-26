@@ -37,13 +37,7 @@ namespace channel
 class ChannelManager
 {
 public:
-    ChannelManager(
-        std::shared_ptr<ionclaw::config::Config> config,
-        std::shared_ptr<ionclaw::bus::MessageBus> bus,
-        std::shared_ptr<ionclaw::session::SessionManager> sessionManager,
-        std::shared_ptr<ionclaw::task::TaskManager> taskManager,
-        std::shared_ptr<ionclaw::bus::EventDispatcher> dispatcher,
-        std::shared_ptr<ionclaw::mcp::McpDispatcher> mcpDispatcher);
+    ChannelManager(std::shared_ptr<ionclaw::config::Config> config, std::shared_ptr<ionclaw::bus::MessageBus> bus, std::shared_ptr<ionclaw::session::SessionManager> sessionManager, std::shared_ptr<ionclaw::task::TaskManager> taskManager, std::shared_ptr<ionclaw::bus::EventDispatcher> dispatcher, std::shared_ptr<ionclaw::mcp::McpDispatcher> mcpDispatcher);
     ~ChannelManager();
 
     void startChannel(const std::string &name);

@@ -13,9 +13,6 @@ class SessionSweeper
 {
 public:
     SessionSweeper(const std::string &sessionsDir, int64_t maxDiskBytes, double highWaterRatio);
-
-    // sweep oldest session files to reclaim disk space
-    // excludeFilenames: filenames (not full paths) of sessions currently in cache; these are skipped
     void sweepIfNeeded(const std::vector<std::string> &excludeFilenames = {});
 
 private:

@@ -21,9 +21,6 @@ public:
     static void save(const Config &config, const std::string &path);
     static std::string toYaml(const Config &config);
     static std::string expandEnvVars(const std::string &value);
-
-    // resolves agent workspaces: ensures at least one agent exists,
-    // sets empty workspaces to the default, resolves relative to absolute
     static void resolveWorkspaces(Config &config, const std::string &projectPath);
 
 private:

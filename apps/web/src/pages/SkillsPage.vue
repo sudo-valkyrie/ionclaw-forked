@@ -51,9 +51,7 @@ const search = ref('')
 const filteredSkills = computed(() => {
   const q = search.value.trim().toLowerCase()
   if (!q) return skills.value
-  return skills.value.filter(s =>
-    s.name.toLowerCase().includes(q) || (s.description || '').toLowerCase().includes(q)
-  )
+  return skills.value.filter((s) => s.name.toLowerCase().includes(q) || (s.description || '').toLowerCase().includes(q))
 })
 
 async function loadSkills() {
@@ -164,7 +162,12 @@ function deleteLocation(skill) {
     </div>
 
     <div v-else-if="filteredSkills.length" class="skills-grid">
-      <Card v-for="skill in filteredSkills" :key="`${skill.name}-${skill.source}-${skill.agent || ''}`" class="skill-card" @click="viewSkill(skill)">
+      <Card
+        v-for="skill in filteredSkills"
+        :key="`${skill.name}-${skill.source}-${skill.agent || ''}`"
+        class="skill-card"
+        @click="viewSkill(skill)"
+      >
         <template #title>
           <div class="skill-header">
             <div class="skill-name">
@@ -237,22 +240,52 @@ function deleteLocation(skill) {
         v-if="editing"
         v-model="editContent"
         :theme="isDark ? 'dark' : 'light'"
-        codeTheme="github"
-        :codeStyleReverse="false"
+        code-theme="github"
+        :code-style-reverse="false"
         language="en-US"
         :preview="false"
-        :toolbars="['bold', 'underline', 'italic', 'strikeThrough', '-',
-          'title', 'sub', 'sup', 'quote', 'unorderedList', 'orderedList', 'task', '-',
-          'codeRow', 'code', 'link', 'image', 'table', '-',
-          'revoke', 'next', '=',
-          'preview', 'fullscreen']"
+        :toolbars="[
+          'bold',
+          'underline',
+          'italic',
+          'strikeThrough',
+          '-',
+          'title',
+          'sub',
+          'sup',
+          'quote',
+          'unorderedList',
+          'orderedList',
+          'task',
+          '-',
+          'codeRow',
+          'code',
+          'link',
+          'image',
+          'table',
+          '-',
+          'revoke',
+          'next',
+          '=',
+          'preview',
+          'fullscreen',
+        ]"
         class="skill-md-editor"
       />
       <div v-else class="skill-content" v-html="renderMarkdown(skillContent)"></div>
     </Dialog>
 
-    <Dialog v-model:visible="showDeleteConfirm" header="Delete Skill" :modal="true" :style="{ width: '24rem' }" :breakpoints="{ '768px': '90vw' }">
-      <p>Delete <strong>{{ deleteTarget?.name }}</strong> from <strong>{{ deleteLocation(deleteTarget) }}</strong>?</p>
+    <Dialog
+      v-model:visible="showDeleteConfirm"
+      header="Delete Skill"
+      :modal="true"
+      :style="{ width: '24rem' }"
+      :breakpoints="{ '768px': '90vw' }"
+    >
+      <p>
+        Delete <strong>{{ deleteTarget?.name }}</strong> from <strong>{{ deleteLocation(deleteTarget) }}</strong
+        >?
+      </p>
       <template #footer>
         <Button label="Cancel" severity="secondary" text size="small" @click="showDeleteConfirm = false" />
         <Button label="Delete" icon="pi pi-trash" severity="danger" size="small" @click="confirmDelete" />
@@ -403,9 +436,15 @@ function deleteLocation(skill) {
   margin-top: 0;
 }
 
-.skill-content :deep(h1) { font-size: 1.4rem; }
-.skill-content :deep(h2) { font-size: 1.2rem; }
-.skill-content :deep(h3) { font-size: 1.05rem; }
+.skill-content :deep(h1) {
+  font-size: 1.4rem;
+}
+.skill-content :deep(h2) {
+  font-size: 1.2rem;
+}
+.skill-content :deep(h3) {
+  font-size: 1.05rem;
+}
 
 .skill-content :deep(p) {
   margin-bottom: 0.85rem;

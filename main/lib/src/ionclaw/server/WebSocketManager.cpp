@@ -25,14 +25,14 @@ void WebSocketManager::addConnection(std::shared_ptr<WebSocketConnection> conn)
 {
     std::lock_guard<std::mutex> lock(mutex);
     connections[conn->connectionId] = conn;
-    spdlog::info("WebSocket connected: {}", conn->connectionId);
+    spdlog::info("[WebSocketManager] WebSocket connected: {}", conn->connectionId);
 }
 
 void WebSocketManager::removeConnection(const std::string &connectionId)
 {
     std::lock_guard<std::mutex> lock(mutex);
     connections.erase(connectionId);
-    spdlog::info("WebSocket disconnected: {}", connectionId);
+    spdlog::info("[WebSocketManager] WebSocket disconnected: {}", connectionId);
 }
 
 void WebSocketManager::broadcast(const std::string &eventType, const nlohmann::json &data)
@@ -71,7 +71,7 @@ void WebSocketManager::broadcast(const std::string &eventType, const nlohmann::j
         }
         catch (const std::exception &e)
         {
-            spdlog::warn("Failed to send to WebSocket {}: {}", id, e.what());
+            spdlog::warn("[WebSocketManager] Failed to send to WebSocket {}: {}", id, e.what());
             deadConnections.push_back(id);
         }
     }
@@ -84,7 +84,7 @@ void WebSocketManager::broadcast(const std::string &eventType, const nlohmann::j
         for (const auto &id : deadConnections)
         {
             connections.erase(id);
-            spdlog::info("Removed dead WebSocket connection: {}", id);
+            spdlog::info("[WebSocketManager] Removed dead WebSocket connection: {}", id);
         }
     }
 }
@@ -105,7 +105,7 @@ void WebSocketManager::sendTo(const std::string &connectionId, const std::string
 
         if (it == connections.end())
         {
-            spdlog::warn("WebSocket connection not found: {}", connectionId);
+            spdlog::warn("[WebSocketManager] WebSocket connection not found: {}", connectionId);
             return;
         }
 
@@ -123,7 +123,7 @@ void WebSocketManager::sendTo(const std::string &connectionId, const std::string
     }
     catch (const std::exception &e)
     {
-        spdlog::warn("Failed to send to WebSocket {}: {}", connectionId, e.what());
+        spdlog::warn("[WebSocketManager] Failed to send to WebSocket {}: {}", connectionId, e.what());
         std::lock_guard<std::mutex> lock(mutex);
         connections.erase(connectionId);
     }

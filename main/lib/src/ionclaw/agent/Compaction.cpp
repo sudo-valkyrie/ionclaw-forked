@@ -16,7 +16,6 @@ namespace ionclaw
 namespace agent
 {
 
-// build summary prompt with dynamic preserve instructions
 std::string Compaction::buildSummaryPrompt(const CompactionConfig &config)
 {
     std::ostringstream prompt;
@@ -61,7 +60,6 @@ std::string Compaction::buildSummaryPrompt(const CompactionConfig &config)
     return prompt.str();
 }
 
-// convert messages to flat text for summarization
 std::string Compaction::messagesToText(const std::vector<ionclaw::provider::Message> &messages)
 {
     std::ostringstream parts;
@@ -73,8 +71,7 @@ std::string Compaction::messagesToText(const std::vector<ionclaw::provider::Mess
         if (msg.role == "tool" && content.size() > MAX_TOOL_RESULT_IN_SUMMARY)
         {
             auto toolName = msg.name.empty() ? "tool" : msg.name;
-            content = ionclaw::util::StringHelper::utf8SafeTruncate(content, MAX_TOOL_RESULT_IN_SUMMARY) +
-                      "\n[" + toolName + " output truncated]";
+            content = ionclaw::util::StringHelper::utf8SafeTruncate(content, MAX_TOOL_RESULT_IN_SUMMARY) + "\n[" + toolName + " output truncated]";
         }
 
         if (!content.empty())
@@ -86,7 +83,6 @@ std::string Compaction::messagesToText(const std::vector<ionclaw::provider::Mess
     return parts.str();
 }
 
-// compute retry delay with exponential backoff and jitter
 int Compaction::computeRetryDelay(int attempt)
 {
     static thread_local std::mt19937 rng(std::random_device{}());
@@ -97,13 +93,7 @@ int Compaction::computeRetryDelay(int attempt)
     return delayMs + jitter(rng);
 }
 
-// generate a conversation summary via llm with retry and fallback
-std::string Compaction::generateSummary(
-    const std::vector<ionclaw::provider::Message> &messages,
-    std::shared_ptr<ionclaw::provider::LlmProvider> provider,
-    const std::string &model,
-    const nlohmann::json &modelParams,
-    const CompactionConfig &config)
+std::string Compaction::generateSummary(const std::vector<ionclaw::provider::Message> &messages, std::shared_ptr<ionclaw::provider::LlmProvider> provider, const std::string &model, const nlohmann::json &modelParams, const CompactionConfig &config)
 {
     auto text = messagesToText(messages);
     auto prompt = buildSummaryPrompt(config);
@@ -135,8 +125,7 @@ std::string Compaction::generateSummary(
         catch (const std::exception &e)
         {
             auto category = ionclaw::provider::ProviderHelper::classifyError(e.what());
-            spdlog::warn("[Compaction] Summary attempt {}/{} failed ({}): {}",
-                         attempt + 1, SUMMARY_MAX_RETRIES, category, e.what());
+            spdlog::warn("[Compaction] Summary attempt {}/{} failed ({}): {}", attempt + 1, SUMMARY_MAX_RETRIES, category, e.what());
 
             if (category == "context_overflow" && messages.size() > 3)
             {
@@ -153,8 +142,7 @@ std::string Compaction::generateSummary(
 
                 if (trimmed.size() < messages.size())
                 {
-                    spdlog::info("[Compaction] Retrying summary excluding {} oversized messages",
-                                 messages.size() - trimmed.size());
+                    spdlog::info("[Compaction] Retrying summary excluding {} oversized messages", messages.size() - trimmed.size());
                     request.messages.back().content = messagesToText(trimmed);
 
                     try
@@ -204,10 +192,7 @@ std::string Compaction::generateSummary(
     return "[summary unavailable after " + std::to_string(SUMMARY_MAX_RETRIES) + " attempts]";
 }
 
-int Compaction::computeAdaptiveChunkSize(
-    const std::vector<ionclaw::provider::Message> &messages,
-    const std::string &model,
-    const nlohmann::json &modelParams)
+int Compaction::computeAdaptiveChunkSize(const std::vector<ionclaw::provider::Message> &messages, const std::string &model, const nlohmann::json &modelParams)
 {
     auto modelLimit = ionclaw::agent::ContextWindow::getModelLimit(model, modelParams);
     auto totalTokens = ionclaw::agent::ContextWindow::estimateTokens(messages);
@@ -236,13 +221,7 @@ int Compaction::computeAdaptiveChunkSize(
     return std::min(ratioBasedSize, maxMsgsPerChunk);
 }
 
-// chunked summarization: split into token-aware chunks, summarize each, then merge
-std::string Compaction::generateChunkedSummary(
-    const std::vector<ionclaw::provider::Message> &messages,
-    std::shared_ptr<ionclaw::provider::LlmProvider> provider,
-    const std::string &model,
-    const nlohmann::json &modelParams,
-    const CompactionConfig &config)
+std::string Compaction::generateChunkedSummary(const std::vector<ionclaw::provider::Message> &messages, std::shared_ptr<ionclaw::provider::LlmProvider> provider, const std::string &model, const nlohmann::json &modelParams, const CompactionConfig &config)
 {
     auto chunkSize = computeAdaptiveChunkSize(messages, model, modelParams);
     auto total = static_cast<int>(messages.size());
@@ -307,7 +286,6 @@ std::string Compaction::generateChunkedSummary(
     return response.content.empty() ? chunkSummaries.back() : response.content;
 }
 
-// simple truncation fallback when summarization fails or times out
 std::string Compaction::truncationFallback(const std::vector<ionclaw::provider::Message> &messages)
 {
     std::ostringstream text;
@@ -334,7 +312,6 @@ std::string Compaction::truncationFallback(const std::vector<ionclaw::provider::
     return text.str();
 }
 
-// check if conversation has real content worth compacting
 bool Compaction::hasRealConversationContent(const std::vector<ionclaw::provider::Message> &conversation)
 {
     for (const auto &msg : conversation)
@@ -348,23 +325,12 @@ bool Compaction::hasRealConversationContent(const std::vector<ionclaw::provider:
     return false;
 }
 
-// compact conversation by summarizing older messages
-std::vector<ionclaw::provider::Message> Compaction::compact(
-    const std::vector<ionclaw::provider::Message> &messages,
-    std::shared_ptr<ionclaw::provider::LlmProvider> provider,
-    const std::string &model,
-    const nlohmann::json &modelParams,
-    const CompactionConfig &config)
+std::vector<ionclaw::provider::Message> Compaction::compact(const std::vector<ionclaw::provider::Message> &messages, std::shared_ptr<ionclaw::provider::LlmProvider> provider, const std::string &model, const nlohmann::json &modelParams, const CompactionConfig &config)
 {
     return compactWithResult(messages, provider, model, modelParams, config).messages;
 }
 
-CompactionResult Compaction::compactWithResult(
-    const std::vector<ionclaw::provider::Message> &messages,
-    std::shared_ptr<ionclaw::provider::LlmProvider> provider,
-    const std::string &model,
-    const nlohmann::json &modelParams,
-    const CompactionConfig &config)
+CompactionResult Compaction::compactWithResult(const std::vector<ionclaw::provider::Message> &messages, std::shared_ptr<ionclaw::provider::LlmProvider> provider, const std::string &model, const nlohmann::json &modelParams, const CompactionConfig &config)
 {
     CompactionResult result;
 
@@ -415,9 +381,7 @@ CompactionResult Compaction::compactWithResult(
 
         if (danglingCount > 0)
         {
-            toSummarize.insert(toSummarize.end(),
-                               std::make_move_iterator(toKeep.begin()),
-                               std::make_move_iterator(toKeep.begin() + static_cast<ptrdiff_t>(danglingCount)));
+            toSummarize.insert(toSummarize.end(), std::make_move_iterator(toKeep.begin()), std::make_move_iterator(toKeep.begin() + static_cast<ptrdiff_t>(danglingCount)));
             toKeep.erase(toKeep.begin(), toKeep.begin() + static_cast<ptrdiff_t>(danglingCount));
         }
     }
@@ -448,8 +412,8 @@ CompactionResult Compaction::compactWithResult(
             auto capturedParams = modelParams;
             auto capturedConfig = config;
 
-            std::thread([promise, capturedSummarize, capturedProvider, capturedModel, capturedParams, capturedConfig]()
-                        {
+            // clang-format off
+            std::thread([promise, capturedSummarize, capturedProvider, capturedModel, capturedParams, capturedConfig]() {
                 try
                 {
                     std::string result;
@@ -466,8 +430,9 @@ CompactionResult Compaction::compactWithResult(
                 catch (...)
                 {
                     promise->set_exception(std::current_exception());
-                } })
-                .detach();
+                }
+            }).detach();
+            // clang-format on
 
             auto status = future.wait_for(std::chrono::milliseconds(config.timeoutMs));
 
@@ -519,8 +484,7 @@ CompactionResult Compaction::compactWithResult(
         result.summarizedCount = static_cast<int>(toSummarize.size());
         result.keptCount = static_cast<int>(toKeep.size());
 
-        spdlog::info("[Compaction] Compacted {} messages into summary ({} chars), keeping {} recent",
-                     toSummarize.size(), summary.size(), toKeep.size());
+        spdlog::info("[Compaction] Compacted {} messages into summary ({} chars), keeping {} recent", toSummarize.size(), summary.size(), toKeep.size());
 
         if (timedOut)
         {
@@ -539,11 +503,7 @@ CompactionResult Compaction::compactWithResult(
     }
 }
 
-std::vector<ionclaw::provider::Message> Compaction::pruneHistoryForContextShare(
-    const std::vector<ionclaw::provider::Message> &messages,
-    const std::string &model,
-    const nlohmann::json &modelParams,
-    double maxHistoryShare)
+std::vector<ionclaw::provider::Message> Compaction::pruneHistoryForContextShare(const std::vector<ionclaw::provider::Message> &messages, const std::string &model, const nlohmann::json &modelParams, double maxHistoryShare)
 {
     auto modelLimit = ContextWindow::getModelLimit(model, modelParams);
     auto budget = static_cast<int>(modelLimit * maxHistoryShare);
@@ -604,8 +564,7 @@ std::vector<ionclaw::provider::Message> Compaction::pruneHistoryForContextShare(
 
     if (droppedChunks > 0)
     {
-        spdlog::info("[Compaction] Pruned {} chunks to fit history within {:.0f}% context share ({} tokens remaining)",
-                     droppedChunks, maxHistoryShare * 100, conversationTokens);
+        spdlog::info("[Compaction] Pruned {} chunks to fit history within {:.0f}% context share ({} tokens remaining)", droppedChunks, maxHistoryShare * 100, conversationTokens);
     }
 
     // reassemble

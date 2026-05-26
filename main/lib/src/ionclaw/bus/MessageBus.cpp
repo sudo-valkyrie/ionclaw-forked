@@ -10,18 +10,15 @@ namespace ionclaw
 namespace bus
 {
 
-// fingerprint: channel + chatId + content hash
 bool MessageBus::isDuplicate(const InboundMessage &msg)
 {
     // synthetic messages (e.g. wake-on-settle) are never deduplicated
-    if (msg.metadata.contains("synthetic") && msg.metadata["synthetic"].is_boolean() &&
-        msg.metadata["synthetic"].get<bool>())
+    if (msg.metadata.contains("synthetic") && msg.metadata["synthetic"].is_boolean() && msg.metadata["synthetic"].get<bool>())
     {
         return false;
     }
 
-    auto key = msg.channel + ":" + msg.chatId + ":" + msg.senderId + ":" +
-               std::to_string(std::hash<std::string>{}(msg.content));
+    auto key = msg.channel + ":" + msg.chatId + ":" + msg.senderId + ":" + std::to_string(std::hash<std::string>{}(msg.content));
 
     purgeExpiredDedup();
 
@@ -84,8 +81,9 @@ bool MessageBus::consumeInbound(InboundMessage &msg, int timeoutMs)
 {
     std::unique_lock<std::mutex> lock(inboundMutex);
 
-    if (!inboundCv.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this]()
-                            { return !inboundQueue.empty(); }))
+    // clang-format off
+    if (!inboundCv.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this]() { return !inboundQueue.empty(); }))
+    // clang-format on
     {
         return false;
     }
@@ -100,8 +98,9 @@ bool MessageBus::consumeOutbound(OutboundMessage &msg, int timeoutMs)
 {
     std::unique_lock<std::mutex> lock(outboundMutex);
 
-    if (!outboundCv.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this]()
-                             { return !outboundQueue.empty(); }))
+    // clang-format off
+    if (!outboundCv.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this]() { return !outboundQueue.empty(); }))
+    // clang-format on
     {
         return false;
     }

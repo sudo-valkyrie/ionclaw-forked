@@ -14,7 +14,6 @@ namespace ionclaw
 namespace provider
 {
 
-// normalize anthropic stop_reason to standard finish_reason values
 std::string AnthropicProvider::normalizeStopReason(const std::string &stopReason)
 {
     if (stopReason == "max_tokens")
@@ -30,7 +29,6 @@ std::string AnthropicProvider::normalizeStopReason(const std::string &stopReason
     return stopReason;
 }
 
-// sanitize messages before sending to Anthropic API
 void AnthropicProvider::sanitizeMessages(nlohmann::json &messages)
 {
     for (auto &msg : messages)
@@ -48,9 +46,6 @@ void AnthropicProvider::sanitizeMessages(nlohmann::json &messages)
     }
 }
 
-// validate message transcript ordering for Anthropic API:
-// - merge consecutive same-role messages (when safe to do so)
-// - ensure user/assistant alternation
 nlohmann::json AnthropicProvider::validateTranscript(const nlohmann::json &messages)
 {
     nlohmann::json validated = nlohmann::json::array();
@@ -67,16 +62,11 @@ nlohmann::json AnthropicProvider::validateTranscript(const nlohmann::json &messa
                 auto &prev = validated.back();
 
                 // only merge plain text content
-                if (prev.contains("content") && prev["content"].is_string() &&
-                    msg.contains("content") && msg["content"].is_string())
+                if (prev.contains("content") && prev["content"].is_string() && msg.contains("content") && msg["content"].is_string())
                 {
-                    prev["content"] = prev["content"].get<std::string>() + "\n\n" +
-                                      msg["content"].get<std::string>();
+                    prev["content"] = prev["content"].get<std::string>() + "\n\n" + msg["content"].get<std::string>();
                 }
-                else if (prev.contains("content") && prev["content"].is_array() &&
-                         msg.contains("content") && msg["content"].is_array() &&
-                         !prev["content"].empty() && prev["content"][0].value("type", "") == "tool_result" &&
-                         !msg["content"].empty() && msg["content"][0].value("type", "") == "tool_result")
+                else if (prev.contains("content") && prev["content"].is_array() && msg.contains("content") && msg["content"].is_array() && !prev["content"].empty() && prev["content"][0].value("type", "") == "tool_result" && !msg["content"].empty() && msg["content"][0].value("type", "") == "tool_result")
                 {
                     // merge consecutive tool_result user messages
                     for (const auto &block : msg["content"])
@@ -138,9 +128,7 @@ nlohmann::json AnthropicProvider::validateTranscript(const nlohmann::json &messa
                 }
 
                 // merge only if neither has tool_use and both are plain text
-                if (!prevHasToolUse && !curHasToolUse &&
-                    prev.contains("content") && prev["content"].is_string() &&
-                    msg.contains("content") && msg["content"].is_string())
+                if (!prevHasToolUse && !curHasToolUse && prev.contains("content") && prev["content"].is_string() && msg.contains("content") && msg["content"].is_string())
                 {
                     auto prevContent = prev["content"].get<std::string>();
                     auto curContent = msg["content"].get<std::string>();
@@ -167,8 +155,7 @@ nlohmann::json AnthropicProvider::validateTranscript(const nlohmann::json &messa
     return validated;
 }
 
-AnthropicProvider::AnthropicProvider(const std::string &apiKey, const std::string &baseUrl, int timeout,
-                                     const std::map<std::string, std::string> &extraHeaders)
+AnthropicProvider::AnthropicProvider(const std::string &apiKey, const std::string &baseUrl, int timeout, const std::map<std::string, std::string> &extraHeaders)
     : apiKey(apiKey)
     , baseUrl(baseUrl)
     , timeout(timeout)
@@ -272,8 +259,7 @@ nlohmann::json AnthropicProvider::buildRequestBody(const ChatCompletionRequest &
             continue;
         }
 
-        // convert tool results to anthropic format
-        // merge consecutive tool results into a single user message
+        // convert tool results to anthropic format, merging consecutive ones into a single user message
         if (msg.role == "tool")
         {
             nlohmann::json contentBlock;
@@ -318,8 +304,7 @@ nlohmann::json AnthropicProvider::buildRequestBody(const ChatCompletionRequest &
             if (!messages.empty() && messages.back().value("role", "") == "user")
             {
                 auto &prevContent = messages.back()["content"];
-                if (prevContent.is_array() && !prevContent.empty() &&
-                    prevContent[0].value("type", "") == "tool_result")
+                if (prevContent.is_array() && !prevContent.empty() && prevContent[0].value("type", "") == "tool_result")
                 {
                     prevContent.push_back(contentBlock);
                     continue;
@@ -535,10 +520,7 @@ ChatCompletionResponse AnthropicProvider::parseResponse(const nlohmann::json &re
     return result;
 }
 
-void AnthropicProvider::parseStreamEvent(const std::string &eventType, const nlohmann::json &data,
-                                         StreamCallback &callback, std::vector<ToolCall> &pendingToolCalls,
-                                         std::string &currentToolCallId, std::string &currentToolCallName,
-                                         std::string &currentToolCallArgs) const
+void AnthropicProvider::parseStreamEvent(const std::string &eventType, const nlohmann::json &data, StreamCallback &callback, std::vector<ToolCall> &pendingToolCalls, std::string &currentToolCallId, std::string &currentToolCallName, std::string &currentToolCallArgs) const
 {
     // handle new content block (start of tool_use)
     if (eventType == "content_block_start")
@@ -628,11 +610,10 @@ void AnthropicProvider::parseStreamEvent(const std::string &eventType, const nlo
             callback(chunk);
         }
     }
-    // handle message stop — only emit done if message_delta didn't already
+    // handle message stop, only as a fallback because message_delta already emits done
     else if (eventType == "message_stop")
     {
-        // message_delta already emits a "done" chunk with the actual stop_reason;
-        // only emit here as fallback when no stop_reason was received
+        // message_delta already emits the done chunk with the real stop_reason, so nothing is needed here
     }
     // note: "error" events are intercepted in chatStream before reaching this function
 }
@@ -659,7 +640,7 @@ ChatCompletionResponse AnthropicProvider::chat(const ChatCompletionRequest &requ
         auto safeMsg = ProviderHelper::sanitizeErrorMessage(httpResponse.body);
         auto errorType = ProviderHelper::classifyError(safeMsg);
         spdlog::error("[AnthropicProvider] API error (HTTP {}, type={}): {}", httpResponse.statusCode, errorType, safeMsg);
-        throw std::runtime_error("Anthropic API error (HTTP " + std::to_string(httpResponse.statusCode) + ", " + errorType + "): " + safeMsg);
+        throw std::runtime_error("[AnthropicProvider] Anthropic API error (HTTP " + std::to_string(httpResponse.statusCode) + ", " + errorType + "): " + safeMsg);
     }
 
     // parse and return response
@@ -667,7 +648,7 @@ ChatCompletionResponse AnthropicProvider::chat(const ChatCompletionRequest &requ
 
     if (json.is_discarded())
     {
-        throw std::runtime_error("Anthropic API returned invalid JSON (transient)");
+        throw std::runtime_error("[AnthropicProvider] Anthropic API returned invalid JSON (transient)");
     }
 
     return parseResponse(json);
@@ -708,8 +689,8 @@ void AnthropicProvider::chatStream(const ChatCompletionRequest &request, StreamC
         callback(chunk);
     };
 
-    client.postStream("/v1/messages", body.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace), [&](const std::string &data)
-                      {
+    // clang-format off
+    client.postStream("/v1/messages", body.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace), [&](const std::string &data) {
         if (data.empty() || data == "[DONE]")
         {
             return;
@@ -723,16 +704,13 @@ void AnthropicProvider::chatStream(const ChatCompletionRequest &request, StreamC
             // propagate API error events as exceptions
             if (eventType == "error")
             {
-                auto errorMsg = json.contains("error") && json["error"].is_object()
-                                    ? json["error"].value("message", "Unknown stream error")
-                                    : "Unknown stream error";
+                auto errorMsg = json.contains("error") && json["error"].is_object() ? json["error"].value("message", "Unknown stream error") : "Unknown stream error";
                 throw std::runtime_error("[AnthropicProvider] Stream error: " + errorMsg);
             }
 
             if (!eventType.empty())
             {
-                parseStreamEvent(eventType, json, wrappedCallback, pendingToolCalls,
-                                 currentToolCallId, currentToolCallName, currentToolCallArgs);
+                parseStreamEvent(eventType, json, wrappedCallback, pendingToolCalls, currentToolCallId, currentToolCallName, currentToolCallArgs);
 
                 // emit done fallback on message_stop if message_delta didn't carry stop_reason
                 if (eventType == "message_stop" && !doneEmitted)
@@ -747,10 +725,12 @@ void AnthropicProvider::chatStream(const ChatCompletionRequest &request, StreamC
         }
         catch (const nlohmann::json::exception &)
         {
-            // non-JSON data received — likely an HTTP error page or plain-text error
+            // non-JSON data received, likely an HTTP error page or plain-text error
             spdlog::warn("[AnthropicProvider] Non-JSON stream data received: {}", ionclaw::util::StringHelper::utf8SafeTruncate(data, 200));
             throw std::runtime_error("[AnthropicProvider] Non-JSON error response: " + ionclaw::util::StringHelper::utf8SafeTruncate(data, 500));
-        } });
+        }
+    });
+    // clang-format on
 }
 
 } // namespace provider

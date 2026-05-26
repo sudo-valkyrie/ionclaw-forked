@@ -17,9 +17,7 @@ namespace provider
 class FailoverProvider final : public LlmProvider
 {
 public:
-    FailoverProvider(std::vector<std::shared_ptr<LlmProvider>> providers,
-                     std::vector<std::string> providerNames,
-                     std::vector<nlohmann::json> profileModelParams = {});
+    FailoverProvider(std::vector<std::shared_ptr<LlmProvider>> providers, std::vector<std::string> providerNames, std::vector<nlohmann::json> profileModelParams = {});
 
     ChatCompletionResponse chat(const ChatCompletionRequest &request) override;
     void chatStream(const ChatCompletionRequest &request, StreamCallback callback) override;
@@ -32,7 +30,6 @@ private:
     std::atomic<size_t> currentIndex{0};
     int maxRetries;
 
-    // cooldown tracking per provider index
     std::vector<std::chrono::steady_clock::time_point> cooldownUntil;
     mutable std::mutex cooldownMutex;
     static constexpr int COOLDOWN_SECONDS = 60;

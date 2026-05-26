@@ -19,7 +19,6 @@ public:
     ToolSchema schema() const override;
 
 private:
-    // constants
     static const std::set<std::string> VALID_ASPECT_RATIOS;
     static const std::set<std::string> VALID_SIZES;
 };

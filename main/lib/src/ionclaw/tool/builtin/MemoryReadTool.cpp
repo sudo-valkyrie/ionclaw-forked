@@ -44,8 +44,7 @@ ToolResult MemoryReadTool::execute(const nlohmann::json &params, const ToolConte
     }
 
     // prevent path traversal
-    if (filename.find('/') != std::string::npos || filename.find('\\') != std::string::npos ||
-        filename.find("..") != std::string::npos)
+    if (filename.find('/') != std::string::npos || filename.find('\\') != std::string::npos || filename.find("..") != std::string::npos)
     {
         return "Error: invalid filename";
     }

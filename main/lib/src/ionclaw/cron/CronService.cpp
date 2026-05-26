@@ -18,10 +18,7 @@ namespace ionclaw
 namespace cron
 {
 
-CronService::CronService(
-    std::shared_ptr<ionclaw::bus::MessageBus> bus,
-    std::shared_ptr<ionclaw::task::TaskManager> taskManager,
-    const std::string &workspacePath)
+CronService::CronService(std::shared_ptr<ionclaw::bus::MessageBus> bus, std::shared_ptr<ionclaw::task::TaskManager> taskManager, const std::string &workspacePath)
     : bus(std::move(bus))
     , taskManager(std::move(taskManager))
     , storePath(workspacePath + "/cron_jobs.json")
@@ -60,14 +57,7 @@ void CronService::stop()
     spdlog::info("[CronService] stopped");
 }
 
-CronJob CronService::addJob(
-    const std::string &name,
-    const CronSchedule &schedule,
-    const std::string &message,
-    bool deliver,
-    const std::string &channel,
-    const std::string &to,
-    bool deleteAfterRun)
+CronJob CronService::addJob(const std::string &name, const CronSchedule &schedule, const std::string &message, bool deliver, const std::string &channel, const std::string &to, bool deleteAfterRun)
 {
     CronJob job;
     job.id = ionclaw::util::UniqueId::shortId();
@@ -95,9 +85,9 @@ bool CronService::removeJob(const std::string &jobId)
 {
     std::lock_guard<std::mutex> lock(mutex);
 
-    auto it = std::remove_if(jobs.begin(), jobs.end(),
-                             [&jobId](const CronJob &j)
-                             { return j.id == jobId; });
+    // clang-format off
+    auto it = std::remove_if(jobs.begin(), jobs.end(), [&jobId](const CronJob &j) { return j.id == jobId; });
+    // clang-format on
 
     if (it == jobs.end())
     {
@@ -114,9 +104,9 @@ bool CronService::updateJob(const std::string &jobId, const CronJob &patch)
 {
     std::lock_guard<std::mutex> lock(mutex);
 
-    auto it = std::find_if(jobs.begin(), jobs.end(),
-                           [&jobId](const CronJob &j)
-                           { return j.id == jobId; });
+    // clang-format off
+    auto it = std::find_if(jobs.begin(), jobs.end(), [&jobId](const CronJob &j) { return j.id == jobId; });
+    // clang-format on
 
     if (it == jobs.end())
     {
@@ -151,8 +141,6 @@ std::vector<CronJob> CronService::listJobs() const
     std::lock_guard<std::mutex> lock(mutex);
     return jobs;
 }
-
-// background loop
 
 void CronService::runLoop()
 {
@@ -214,9 +202,7 @@ void CronService::tick()
         {
             // route through the originating channel so the response reaches the right place
             auto effectiveChannel = job.payload.channel.empty() ? "web" : job.payload.channel;
-            auto effectiveChatId = job.payload.to.empty()
-                                       ? "cron_" + job.id + "_" + ionclaw::util::UniqueId::shortId()
-                                       : job.payload.to;
+            auto effectiveChatId = job.payload.to.empty() ? "cron_" + job.id + "_" + ionclaw::util::UniqueId::shortId() : job.payload.to;
 
             // create task for board tracking
             std::string taskId;
@@ -267,11 +253,9 @@ void CronService::tick()
     // remove completed one-shot jobs
     for (const auto &id : toDelete)
     {
-        jobs.erase(
-            std::remove_if(jobs.begin(), jobs.end(),
-                           [&id](const CronJob &j)
-                           { return j.id == id; }),
-            jobs.end());
+        // clang-format off
+        jobs.erase(std::remove_if(jobs.begin(), jobs.end(), [&id](const CronJob &j) { return j.id == id; }), jobs.end());
+        // clang-format on
     }
 
     if (dirty || !toDelete.empty())
@@ -279,8 +263,6 @@ void CronService::tick()
         persist();
     }
 }
-
-// persistence
 
 void CronService::load()
 {

@@ -102,14 +102,7 @@ async function toggleRecording() {
 
 <template>
   <div class="chat-input">
-    <input
-      ref="fileInput"
-      type="file"
-      accept="image/*,audio/*"
-      multiple
-      hidden
-      @change="onFilesSelected"
-    />
+    <input ref="fileInput" type="file" accept="image/*,audio/*" multiple hidden @change="onFilesSelected" />
 
     <div v-if="chatStore.draft.attachments.length" class="attachments">
       <div v-for="(file, i) in chatStore.draft.attachments" :key="i" class="attachment-chip">
@@ -122,23 +115,16 @@ async function toggleRecording() {
     </div>
 
     <div class="input-row">
-      <Button
-        icon="pi pi-paperclip"
-        rounded
-        text
-        severity="secondary"
-        @click="openFilePicker"
-        title="Attach file"
-      />
+      <Button icon="pi pi-paperclip" rounded text severity="secondary" title="Attach file" @click="openFilePicker" />
       <Button
         v-if="canRecord"
         :icon="recording ? 'pi pi-stop-circle' : 'pi pi-microphone'"
         rounded
         text
         :severity="recording ? 'danger' : 'secondary'"
-        @click="toggleRecording"
         :title="recording ? 'Stop recording' : 'Record audio'"
         :class="{ 'recording-pulse': recording }"
+        @click="toggleRecording"
       />
       <Textarea
         v-model="chatStore.draft.text"
@@ -152,8 +138,8 @@ async function toggleRecording() {
       <Button
         icon="pi pi-send"
         rounded
-        @click="handleSend"
         :disabled="!chatStore.draft.text.trim() && !chatStore.draft.attachments.length"
+        @click="handleSend"
       />
     </div>
   </div>
@@ -225,8 +211,13 @@ async function toggleRecording() {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 @media (max-width: 768px) {

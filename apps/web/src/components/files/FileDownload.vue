@@ -101,5 +101,4 @@ async function onDownload() {
   font-size: 0.85rem;
   color: var(--p-text-muted-color);
 }
-
 </style>

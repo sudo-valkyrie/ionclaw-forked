@@ -9,7 +9,9 @@ export const useTasksStore = defineStore('tasks', () => {
   const selectedAgent = ref('')
 
   function sortByNewest(list) {
-    return list.slice().sort((a, b) => (b.updated_at || b.created_at || '').localeCompare(a.updated_at || a.created_at || ''))
+    return list
+      .slice()
+      .sort((a, b) => (b.updated_at || b.created_at || '').localeCompare(a.updated_at || a.created_at || ''))
   }
 
   const filteredTasks = computed(() => {
@@ -18,14 +20,10 @@ export const useTasksStore = defineStore('tasks', () => {
     return all.filter((t) => t.agent_name === selectedAgent.value)
   })
 
-  const todoTasks = computed(() =>
-    sortByNewest(filteredTasks.value.filter((t) => t.state === 'TODO'))
-  )
-  const doingTasks = computed(() =>
-    sortByNewest(filteredTasks.value.filter((t) => t.state === 'DOING'))
-  )
+  const todoTasks = computed(() => sortByNewest(filteredTasks.value.filter((t) => t.state === 'TODO')))
+  const doingTasks = computed(() => sortByNewest(filteredTasks.value.filter((t) => t.state === 'DOING')))
   const doneTasks = computed(() =>
-    sortByNewest(filteredTasks.value.filter((t) => t.state === 'DONE' || t.state === 'ERROR'))
+    sortByNewest(filteredTasks.value.filter((t) => t.state === 'DONE' || t.state === 'ERROR')),
   )
 
   async function loadTasks() {
@@ -40,7 +38,7 @@ export const useTasksStore = defineStore('tasks', () => {
     for (const t of list) {
       fresh[t.id] = t
     }
-    // Preserve in-flight tasks from WebSocket that the API response may not include yet
+    // preserve in-flight tasks from websocket that the api response may not include yet
     for (const [id, existing] of Object.entries(tasks.value)) {
       if (!fresh[id] && (existing.state === 'DOING' || existing.state === 'TODO')) {
         fresh[id] = existing
@@ -92,7 +90,16 @@ export const useTasksStore = defineStore('tasks', () => {
   }
 
   return {
-    tasks, activeTools, selectedAgent, todoTasks, doingTasks, doneTasks,
-    loadTasks, onTaskCreated, onTaskUpdated, onToolUse, onThinking,
+    tasks,
+    activeTools,
+    selectedAgent,
+    todoTasks,
+    doingTasks,
+    doneTasks,
+    loadTasks,
+    onTaskCreated,
+    onTaskUpdated,
+    onToolUse,
+    onThinking,
   }
 })

@@ -12,7 +12,6 @@ namespace ionclaw
 namespace provider
 {
 
-// strip "provider/" prefix from model strings
 std::string ProviderHelper::stripProviderPrefix(const std::string &model)
 {
     auto pos = model.find('/');
@@ -25,7 +24,6 @@ std::string ProviderHelper::stripProviderPrefix(const std::string &model)
     return model;
 }
 
-// sanitize tool call ID to only [a-zA-Z0-9_-], with UUID fallback
 std::string ProviderHelper::sanitizeToolCallId(const std::string &id, const std::string &prefix)
 {
     if (id.empty())
@@ -61,7 +59,6 @@ std::string ProviderHelper::sanitizeToolCallId(const std::string &id, const std:
     return sanitized.empty() ? prefix + ionclaw::util::UniqueId::uuid().substr(0, 12) : sanitized;
 }
 
-// redact api keys and tokens from error messages
 std::string ProviderHelper::sanitizeErrorMessage(const std::string &msg)
 {
     // replace known key patterns with redacted placeholder
@@ -76,7 +73,6 @@ std::string ProviderHelper::sanitizeErrorMessage(const std::string &msg)
     return safe;
 }
 
-// repair malformed JSON tool arguments
 nlohmann::json ProviderHelper::repairJsonArgs(const std::string &args)
 {
     if (args.empty())
@@ -176,8 +172,7 @@ nlohmann::json ProviderHelper::repairJsonArgs(const std::string &args)
     {
     }
 
-    // strip trailing commas before closing delimiters (common llm output pattern)
-    // handles: {"key": "val",} and ["a", "b",]
+    // strip trailing commas that sit right before a closing brace or bracket (common in llm output)
     {
         std::string stripped;
         stripped.reserve(repaired.size());
@@ -213,8 +208,7 @@ nlohmann::json ProviderHelper::repairJsonArgs(const std::string &args)
             {
                 // look ahead past whitespace for closing delimiter
                 size_t j = i + 1;
-                while (j < repaired.size() && (repaired[j] == ' ' || repaired[j] == '\t' ||
-                                               repaired[j] == '\n' || repaired[j] == '\r'))
+                while (j < repaired.size() && (repaired[j] == ' ' || repaired[j] == '\t' || repaired[j] == '\n' || repaired[j] == '\r'))
                 {
                     ++j;
                 }
@@ -241,7 +235,6 @@ nlohmann::json ProviderHelper::repairJsonArgs(const std::string &args)
     return nlohmann::json::object();
 }
 
-// classify error type from message text
 std::string ProviderHelper::classifyError(const std::string &msg)
 {
     // convert to lowercase for case-insensitive matching
@@ -280,33 +273,19 @@ std::string ProviderHelper::classifyError(const std::string &msg)
     }
 
     // rate limit
-    if (lower.find("rate_limit") != std::string::npos ||
-        lower.find("rate limit") != std::string::npos ||
-        lower.find("too many requests") != std::string::npos ||
-        lower.find("quota exceeded") != std::string::npos ||
-        lower.find("overloaded") != std::string::npos ||
-        hasStatusCode("429"))
+    if (lower.find("rate_limit") != std::string::npos || lower.find("rate limit") != std::string::npos || lower.find("too many requests") != std::string::npos || lower.find("quota exceeded") != std::string::npos || lower.find("overloaded") != std::string::npos || hasStatusCode("429"))
     {
         return "rate_limit";
     }
 
     // billing
-    if (lower.find("billing") != std::string::npos ||
-        lower.find("insufficient_quota") != std::string::npos ||
-        lower.find("payment") != std::string::npos ||
-        lower.find("exceeded your current quota") != std::string::npos ||
-        hasStatusCode("402"))
+    if (lower.find("billing") != std::string::npos || lower.find("insufficient_quota") != std::string::npos || lower.find("payment") != std::string::npos || lower.find("exceeded your current quota") != std::string::npos || hasStatusCode("402"))
     {
         return "billing";
     }
 
     // auth
-    if (lower.find("authentication") != std::string::npos ||
-        lower.find("unauthorized") != std::string::npos ||
-        lower.find("invalid api key") != std::string::npos ||
-        lower.find("invalid_api_key") != std::string::npos ||
-        lower.find("permission denied") != std::string::npos ||
-        hasStatusCode("401") || hasStatusCode("403"))
+    if (lower.find("authentication") != std::string::npos || lower.find("unauthorized") != std::string::npos || lower.find("invalid api key") != std::string::npos || lower.find("invalid_api_key") != std::string::npos || lower.find("permission denied") != std::string::npos || hasStatusCode("401") || hasStatusCode("403"))
     {
         return "auth";
     }
@@ -366,19 +345,7 @@ std::string ProviderHelper::classifyError(const std::string &msg)
     }
 
     // transient (use word-boundary matching for status codes)
-    if (lower.find("connection refused") != std::string::npos ||
-        lower.find("connection reset") != std::string::npos ||
-        lower.find("internal server error") != std::string::npos ||
-        lower.find("bad gateway") != std::string::npos ||
-        lower.find("service unavailable") != std::string::npos ||
-        lower.find("econnreset") != std::string::npos ||
-        lower.find("econnrefused") != std::string::npos ||
-        lower.find("enetunreach") != std::string::npos ||
-        lower.find("ehostunreach") != std::string::npos ||
-        lower.find("epipe") != std::string::npos ||
-        lower.find("network error") != std::string::npos ||
-        lower.find("fetch failed") != std::string::npos ||
-        hasStatusCode("500") || hasStatusCode("502") || hasStatusCode("503") || hasStatusCode("521"))
+    if (lower.find("connection refused") != std::string::npos || lower.find("connection reset") != std::string::npos || lower.find("internal server error") != std::string::npos || lower.find("bad gateway") != std::string::npos || lower.find("service unavailable") != std::string::npos || lower.find("econnreset") != std::string::npos || lower.find("econnrefused") != std::string::npos || lower.find("enetunreach") != std::string::npos || lower.find("ehostunreach") != std::string::npos || lower.find("epipe") != std::string::npos || lower.find("network error") != std::string::npos || lower.find("fetch failed") != std::string::npos || hasStatusCode("500") || hasStatusCode("502") || hasStatusCode("503") || hasStatusCode("521"))
     {
         return "transient";
     }
@@ -386,7 +353,6 @@ std::string ProviderHelper::classifyError(const std::string &msg)
     return "unknown";
 }
 
-// sanitize tool_calls in assistant messages: drop entries with missing id or name
 void ProviderHelper::sanitizeToolCallInputs(nlohmann::json &messages)
 {
     for (auto &msg : messages)
@@ -434,7 +400,6 @@ void ProviderHelper::sanitizeToolCallInputs(nlohmann::json &messages)
     }
 }
 
-// validate and sanitize tool call name: enforce [A-Za-z0-9_-], max 64 chars
 std::string ProviderHelper::sanitizeToolCallName(const std::string &name)
 {
     static constexpr size_t MAX_TOOL_NAME_CHARS = 64;

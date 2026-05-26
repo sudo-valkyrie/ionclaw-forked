@@ -40,12 +40,12 @@ function isVisible(field) {
 const visibleFields = computed(() => props.schema.filter(isVisible))
 
 function humanize(name) {
-  return name.replace(/[_-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  return name.replace(/[_-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 function refOptions(type) {
   const items = props.references[type + 's'] || []
-  return [{ label: '(none)', value: '' }, ...items.map(n => ({ label: humanize(n), value: n }))]
+  return [{ label: '(none)', value: '' }, ...items.map((n) => ({ label: humanize(n), value: n }))]
 }
 
 function generateUuid() {
@@ -76,30 +76,30 @@ function confirmGenerate() {
       <InputText
         v-if="field.type === 'text' || field.type === 'email'"
         :model-value="modelValue[field.name] ?? ''"
-        @update:model-value="update(field.name, $event)"
         :type="field.type === 'email' ? 'email' : 'text'"
         :placeholder="field.placeholder || ''"
         autocapitalize="none"
         autocomplete="off"
         class="w-full"
+        @update:model-value="update(field.name, $event)"
       />
 
       <!-- int -->
       <InputNumber
         v-else-if="field.type === 'int'"
         :model-value="modelValue[field.name] ?? 0"
-        @update:model-value="update(field.name, $event)"
-        :useGrouping="false"
+        :use-grouping="false"
         class="w-full"
+        @update:model-value="update(field.name, $event)"
       />
 
       <!-- float -->
       <InputNumber
         v-else-if="field.type === 'float'"
         :model-value="modelValue[field.name] ?? 0"
-        @update:model-value="update(field.name, $event)"
         :min-fraction-digits="1"
         class="w-full"
+        @update:model-value="update(field.name, $event)"
       />
 
       <!-- bool -->
@@ -113,19 +113,19 @@ function confirmGenerate() {
       <div v-else-if="field.type === 'secret' && field.generate" class="secret-generate-row">
         <Password
           :model-value="modelValue[field.name] ?? ''"
-          @update:model-value="update(field.name, $event)"
           :feedback="false"
-          toggleMask
+          toggle-mask
           :placeholder="field.placeholder ?? 'Leave empty to keep current'"
           class="flex-1"
-          inputClass="w-full"
-          :inputProps="{ autocomplete: 'off', 'data-1p-ignore': '' }"
+          input-class="w-full"
+          :input-props="{ autocomplete: 'off', 'data-1p-ignore': '' }"
+          @update:model-value="update(field.name, $event)"
         />
         <Button
+          v-tooltip.top="'Generate new UUID'"
           icon="pi pi-refresh"
           severity="secondary"
           size="small"
-          v-tooltip.top="'Generate new UUID'"
           @click="requestGenerate(field.name)"
         />
       </div>
@@ -134,89 +134,89 @@ function confirmGenerate() {
       <Password
         v-else-if="field.type === 'secret'"
         :model-value="modelValue[field.name] ?? ''"
-        @update:model-value="update(field.name, $event)"
         :feedback="false"
-        toggleMask
+        toggle-mask
         :placeholder="field.placeholder ?? 'Leave empty to keep current'"
         class="w-full"
-        inputClass="w-full"
-        :inputProps="{ autocomplete: 'off', 'data-1p-ignore': '' }"
+        input-class="w-full"
+        :input-props="{ autocomplete: 'off', 'data-1p-ignore': '' }"
+        @update:model-value="update(field.name, $event)"
       />
 
       <!-- long_text -->
       <Textarea
         v-else-if="field.type === 'long_text'"
         :model-value="modelValue[field.name] ?? ''"
-        @update:model-value="update(field.name, $event)"
         :placeholder="field.placeholder || ''"
         rows="4"
         class="w-full"
+        @update:model-value="update(field.name, $event)"
       />
 
       <!-- select -->
       <Select
         v-else-if="field.type === 'select'"
         :model-value="modelValue[field.name] ?? ''"
-        @update:model-value="update(field.name, $event)"
         :options="field.options || []"
         option-label="label"
         option-value="value"
         class="w-full"
+        @update:model-value="update(field.name, $event)"
       />
 
       <!-- credential -->
       <Select
         v-else-if="field.type === 'credential'"
         :model-value="modelValue[field.name] ?? ''"
-        @update:model-value="update(field.name, $event)"
         :options="refOptions('credential')"
         option-label="label"
         option-value="value"
         class="w-full"
+        @update:model-value="update(field.name, $event)"
       />
 
       <!-- provider -->
       <Select
         v-else-if="field.type === 'provider'"
         :model-value="modelValue[field.name] ?? ''"
-        @update:model-value="update(field.name, $event)"
         :options="refOptions('provider')"
         option-label="label"
         option-value="value"
         class="w-full"
+        @update:model-value="update(field.name, $event)"
       />
 
       <!-- datetime -->
       <DatePicker
         v-else-if="field.type === 'datetime'"
         :model-value="modelValue[field.name]"
-        @update:model-value="update(field.name, $event)"
-        showTime
-        hourFormat="24"
-        showIcon
+        show-time
+        hour-format="24"
+        show-icon
         fluid
-        dateFormat="yy-mm-dd"
+        date-format="yy-mm-dd"
+        @update:model-value="update(field.name, $event)"
       />
 
       <!-- date -->
       <DatePicker
         v-else-if="field.type === 'date'"
         :model-value="modelValue[field.name]"
-        @update:model-value="update(field.name, $event)"
-        showIcon
+        show-icon
         fluid
-        dateFormat="yy-mm-dd"
+        date-format="yy-mm-dd"
+        @update:model-value="update(field.name, $event)"
       />
 
       <!-- time -->
       <DatePicker
         v-else-if="field.type === 'time'"
         :model-value="modelValue[field.name]"
-        @update:model-value="update(field.name, $event)"
-        timeOnly
-        hourFormat="24"
-        showIcon
+        time-only
+        hour-format="24"
+        show-icon
         fluid
+        @update:model-value="update(field.name, $event)"
       />
 
       <!-- color -->
@@ -230,13 +230,15 @@ function confirmGenerate() {
 
   <Dialog
     :visible="pendingGenerateField !== null"
-    @update:visible="pendingGenerateField = null"
     header="Generate New Key"
     :modal="true"
     :style="{ width: '22rem' }"
     :breakpoints="{ '768px': '90vw' }"
+    @update:visible="pendingGenerateField = null"
   >
-    <p style="margin: 0; font-size: 0.9rem">This will replace the current key with a new UUID. Any clients using the old key will stop working.</p>
+    <p style="margin: 0; font-size: 0.9rem">
+      This will replace the current key with a new UUID. Any clients using the old key will stop working.
+    </p>
     <template #footer>
       <Button label="Cancel" severity="secondary" text size="small" @click="pendingGenerateField = null" />
       <Button label="Generate" icon="pi pi-refresh" size="small" @click="confirmGenerate" />

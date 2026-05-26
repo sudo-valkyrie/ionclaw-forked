@@ -13,14 +13,7 @@ namespace ionclaw
 namespace server
 {
 
-HttpServer::HttpServer(
-    std::shared_ptr<Routes> routes,
-    std::shared_ptr<Auth> auth,
-    std::shared_ptr<WebSocketManager> wsManager,
-    std::shared_ptr<ionclaw::mcp::McpDispatcher> mcpDispatcher,
-    const ionclaw::config::ServerConfig &serverConfig,
-    const std::string &webDir,
-    const std::string &publicDir)
+HttpServer::HttpServer(std::shared_ptr<Routes> routes, std::shared_ptr<Auth> auth, std::shared_ptr<WebSocketManager> wsManager, std::shared_ptr<ionclaw::mcp::McpDispatcher> mcpDispatcher, const ionclaw::config::ServerConfig &serverConfig, const std::string &webDir, const std::string &publicDir)
     : routes(routes)
     , auth(auth)
     , wsManager(wsManager)
@@ -51,7 +44,7 @@ void HttpServer::start()
     server = std::make_unique<Poco::Net::HTTPServer>(factory, socket, params);
     server->start();
 
-    spdlog::info("HTTP server started on {}:{}", serverConfig.host, serverConfig.port);
+    spdlog::info("[HttpServer] HTTP server started on {}:{}", serverConfig.host, serverConfig.port);
 }
 
 void HttpServer::stop()
@@ -59,7 +52,7 @@ void HttpServer::stop()
     if (server)
     {
         server->stop();
-        spdlog::info("HTTP server stopped");
+        spdlog::info("[HttpServer] HTTP server stopped");
     }
 }
 

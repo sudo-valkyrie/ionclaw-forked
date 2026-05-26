@@ -50,13 +50,11 @@ bool ToolHelper::isPathWithinWorkspace(const std::string &workspacePath, const s
     return target == workspace.substr(0, workspace.size() - 1) || target.rfind(workspace, 0) == 0;
 }
 
-std::string ToolHelper::validateAndResolvePath(const std::string &projectPath, const std::string &workspacePath,
-                                               const std::string &rawPath, const std::string &publicPath,
-                                               bool restrictToWorkspace)
+std::string ToolHelper::validateAndResolvePath(const std::string &projectPath, const std::string &workspacePath, const std::string &rawPath, const std::string &publicPath, bool restrictToWorkspace)
 {
     if (workspacePath.empty())
     {
-        throw std::runtime_error("Workspace path is not configured");
+        throw std::runtime_error("[ToolHelper] Workspace path is not configured");
     }
 
     std::string resolved;
@@ -88,7 +86,7 @@ std::string ToolHelper::validateAndResolvePath(const std::string &projectPath, c
 
         if (!inWorkspace && !inPublic && !inProject)
         {
-            throw std::runtime_error("Path is outside the workspace: " + rawPath);
+            throw std::runtime_error("[ToolHelper] Path is outside the workspace: " + rawPath);
         }
     }
 
@@ -123,9 +121,7 @@ std::string ToolHelper::truncateOutput(const std::string &output, int contextWin
 
     if (contextWindowTokens > 0)
     {
-        auto contextMax = static_cast<int>(std::min(
-            static_cast<double>(contextWindowTokens) * TOOL_RESULT_CONTEXT_SHARE * 4.0,
-            static_cast<double>(MAX_TOOL_RESULT_CHARS)));
+        auto contextMax = static_cast<int>(std::min(static_cast<double>(contextWindowTokens) * TOOL_RESULT_CONTEXT_SHARE * 4.0, static_cast<double>(MAX_TOOL_RESULT_CHARS)));
         maxChars = std::min(maxChars, contextMax);
     }
 
@@ -140,8 +136,7 @@ std::string ToolHelper::truncateOutput(const std::string &output, int contextWin
         // utf-8 safe tail extraction: skip continuation bytes at start of tail
         auto tailStart = output.size() - static_cast<size_t>(tailSize);
 
-        while (tailStart < output.size() &&
-               (static_cast<unsigned char>(output[tailStart]) & 0xC0) == 0x80)
+        while (tailStart < output.size() && (static_cast<unsigned char>(output[tailStart]) & 0xC0) == 0x80)
         {
             tailStart++;
         }
@@ -156,12 +151,9 @@ std::string ToolHelper::truncateOutput(const std::string &output, int contextWin
             tail = tail.substr(lineStart + 1);
         }
 
-        auto omitted = std::max(static_cast<int64_t>(0),
-                                static_cast<int64_t>(output.size()) - headSize - tailSize);
+        auto omitted = std::max(static_cast<int64_t>(0), static_cast<int64_t>(output.size()) - headSize - tailSize);
 
-        return head +
-               "\n\n[... " + std::to_string(omitted) + " chars omitted ...]\n\n" +
-               tail;
+        return head + "\n\n[... " + std::to_string(omitted) + " chars omitted ...]\n\n" + tail;
     }
 
     return output;

@@ -16,7 +16,7 @@ namespace fs = std::filesystem;
 
 void Routes::handleConfigGet(Poco::Net::HTTPServerRequest &, Poco::Net::HTTPServerResponse &resp)
 {
-    std::lock_guard<std::mutex> lock(configMutex_);
+    std::lock_guard<std::mutex> lock(configMutex);
     nlohmann::json result;
 
     // basic sections
@@ -169,7 +169,7 @@ void Routes::handleConfigGet(Poco::Net::HTTPServerRequest &, Poco::Net::HTTPServ
 
 void Routes::handleConfigYaml(Poco::Net::HTTPServerRequest &, Poco::Net::HTTPServerResponse &resp)
 {
-    std::lock_guard<std::mutex> lock(configMutex_);
+    std::lock_guard<std::mutex> lock(configMutex);
     // mask sensitive values before serializing to yaml
     auto maskedConfig = *config;
 
@@ -214,7 +214,7 @@ void Routes::handleConfigUpdate(Poco::Net::HTTPServerRequest &req, Poco::Net::HT
 {
     try
     {
-        std::lock_guard<std::mutex> lock(configMutex_);
+        std::lock_guard<std::mutex> lock(configMutex);
         auto body = nlohmann::json::parse(readBody(req));
 
         if (body.contains("sections"))
@@ -252,7 +252,7 @@ void Routes::handleConfigSection(Poco::Net::HTTPServerRequest &req, Poco::Net::H
 {
     try
     {
-        std::lock_guard<std::mutex> lock(configMutex_);
+        std::lock_guard<std::mutex> lock(configMutex);
         auto body = nlohmann::json::parse(readBody(req));
         auto data = body.value("data", nlohmann::json::object());
 
@@ -648,9 +648,7 @@ void Routes::handleConfigSection(Poco::Net::HTTPServerRequest &req, Poco::Net::H
                     {
                         for (const auto &field : secretRawFields)
                         {
-                            if (cred.raw.contains(field) && cred.raw[field].is_string() &&
-                                cred.raw[field].get<std::string>() == "****" &&
-                                it->second.raw.contains(field))
+                            if (cred.raw.contains(field) && cred.raw[field].is_string() && cred.raw[field].get<std::string>() == "****" && it->second.raw.contains(field))
                             {
                                 cred.raw[field] = it->second.raw[field];
                             }
@@ -720,7 +718,7 @@ void Routes::handleConfigRestart(Poco::Net::HTTPServerRequest &, Poco::Net::HTTP
 {
     try
     {
-        std::lock_guard<std::mutex> lock(configMutex_);
+        std::lock_guard<std::mutex> lock(configMutex);
         auto configPath = config->projectPath + "/config.yml";
 
         if (!fs::exists(configPath))
@@ -729,7 +727,7 @@ void Routes::handleConfigRestart(Poco::Net::HTTPServerRequest &, Poco::Net::HTTP
             return;
         }
 
-        spdlog::info("[Restart] Reloading config from: {}", configPath);
+        spdlog::info("[Routes] Reloading config from: {}", configPath);
 
         auto newConfig = ionclaw::config::ConfigLoader::load(configPath);
 
@@ -775,7 +773,7 @@ void Routes::handleConfigRestart(Poco::Net::HTTPServerRequest &, Poco::Net::HTTP
                 }
                 catch (const std::exception &chErr)
                 {
-                    spdlog::warn("[Restart] Failed to restart channel '{}': {}", chName, chErr.what());
+                    spdlog::warn("[Routes] Failed to restart channel '{}': {}", chName, chErr.what());
                     ch.running = false;
                 }
             }
@@ -785,13 +783,13 @@ void Routes::handleConfigRestart(Poco::Net::HTTPServerRequest &, Poco::Net::HTTP
             }
         }
 
-        spdlog::info("[Restart] All services restarted successfully");
+        spdlog::info("[Routes] All services restarted successfully");
 
         sendJson(resp, {{"status", "restarted"}});
     }
     catch (const std::exception &e)
     {
-        spdlog::error("[Restart] Failed: {}", e.what());
+        spdlog::error("[Routes] Failed: {}", e.what());
         sendError(resp, e.what(), 500);
     }
 }
@@ -800,7 +798,7 @@ void Routes::handleConfigDeleteItem(Poco::Net::HTTPServerRequest &, Poco::Net::H
 {
     try
     {
-        std::lock_guard<std::mutex> lock(configMutex_);
+        std::lock_guard<std::mutex> lock(configMutex);
 
         bool found = false;
 

@@ -236,8 +236,7 @@ ProcessResult ProcessRunner::run(const std::string &command, int timeoutSeconds,
 
     while (true)
     {
-        auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
-            deadline - std::chrono::steady_clock::now());
+        auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - std::chrono::steady_clock::now());
 
         if (remaining.count() <= 0)
         {

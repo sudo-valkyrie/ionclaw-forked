@@ -17,7 +17,6 @@ namespace server
 
 namespace fs = std::filesystem;
 
-// resolves a relative file path to a canonical absolute path within projectRoot
 std::string Routes::resolveFilePath(const std::string &relativePath) const
 {
     std::string fullPath = projectRoot + "/" + relativePath;
@@ -61,14 +60,12 @@ const std::set<std::string> Routes::SYSTEM_FILES = {
     ".DS_Store",
 };
 
-// check if a filename (just the basename) is a protected config file
 bool Routes::isProtectedFile(const std::string &path)
 {
     auto name = fs::path(path).filename().string();
     return PROTECTED_FILES.count(name) > 0;
 }
 
-// check if any component of the path starts with '.' or is a system file
 bool Routes::isHiddenPath(const std::string &path)
 {
     auto normalized = fs::path(path).lexically_normal();
@@ -96,7 +93,6 @@ bool Routes::isHiddenPath(const std::string &path)
     return false;
 }
 
-// check if a single filename is a system file (for directory listing filtering)
 bool Routes::isSystemFile(const std::string &name)
 {
     return SYSTEM_FILES.count(name) > 0 || (!name.empty() && name[0] == '.');

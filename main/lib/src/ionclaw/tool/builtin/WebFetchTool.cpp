@@ -14,7 +14,6 @@ namespace tool
 namespace builtin
 {
 
-// convert HTML to readable markdown-like text
 std::string WebFetchTool::stripHtml(const std::string &html)
 {
     // pre-compiled regex objects (thread_local for thread safety)
@@ -127,25 +126,18 @@ ToolResult WebFetchTool::execute(const nlohmann::json &params, const ToolContext
 
     try
     {
-        auto response = ionclaw::util::HttpClient::request(
-            "GET", url, {{"User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_2) AppleWebKit/537.36"}}, "", 30, true,
-            ionclaw::util::SsrfGuard::validateUrl);
+        auto response = ionclaw::util::HttpClient::request("GET", url, {{"User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_2) AppleWebKit/537.36"}}, "", 30, true, ionclaw::util::SsrfGuard::validateUrl);
 
-        auto finalUrl = response.headers.count("X-Final-URL")
-                            ? response.headers.at("X-Final-URL")
-                            : url;
+        auto finalUrl = response.headers.count("X-Final-URL") ? response.headers.at("X-Final-URL") : url;
 
         if (response.statusCode < 200 || response.statusCode >= 400)
         {
-            return "Error: HTTP " + std::to_string(response.statusCode) +
-                   " fetching " + url;
+            return "Error: HTTP " + std::to_string(response.statusCode) + " fetching " + url;
         }
 
         std::string text;
         std::string extractor;
-        auto contentType = response.headers.count("Content-Type")
-                               ? response.headers.at("Content-Type")
-                               : "";
+        auto contentType = response.headers.count("Content-Type") ? response.headers.at("Content-Type") : "";
 
         if (contentType.find("application/json") != std::string::npos)
         {

@@ -16,7 +16,6 @@ public:
     ToolSchema schema() const override;
 
 private:
-    // constants
     static constexpr size_t MAX_READ_BYTES = 50 * 1024; // 50KB per read
 };
 

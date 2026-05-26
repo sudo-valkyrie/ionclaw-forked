@@ -11,11 +11,98 @@ namespace ionclaw
 namespace bus
 {
 
-// resolve effective queue settings from config hierarchy
-QueueSettings resolveQueueSettings(
-    const config::Config &config,
-    const std::string &channel,
-    std::optional<QueueMode> inlineMode)
+std::string SessionQueue::queueModeToString(QueueMode mode)
+{
+    switch (mode)
+    {
+    case QueueMode::Steer:
+        return "steer";
+    case QueueMode::Followup:
+        return "followup";
+    case QueueMode::Collect:
+        return "collect";
+    case QueueMode::SteerBacklog:
+        return "steer_backlog";
+    case QueueMode::Interrupt:
+        return "interrupt";
+    }
+
+    return "collect";
+}
+
+std::optional<QueueMode> SessionQueue::normalizeQueueMode(const std::string &raw)
+{
+    std::string s = raw;
+    ionclaw::util::StringHelper::toLowerInPlace(s);
+
+    // trim surrounding whitespace
+    while (!s.empty() && s.front() == ' ')
+    {
+        s.erase(s.begin());
+    }
+
+    while (!s.empty() && s.back() == ' ')
+    {
+        s.pop_back();
+    }
+
+    if (s.empty())
+    {
+        return std::nullopt;
+    }
+
+    if (s == "steer")
+    {
+        return QueueMode::Steer;
+    }
+
+    if (s == "followup")
+    {
+        return QueueMode::Followup;
+    }
+
+    if (s == "collect")
+    {
+        return QueueMode::Collect;
+    }
+
+    if (s == "steer_backlog")
+    {
+        return QueueMode::SteerBacklog;
+    }
+
+    if (s == "interrupt")
+    {
+        return QueueMode::Interrupt;
+    }
+
+    return std::nullopt;
+}
+
+std::optional<QueueDropPolicy> SessionQueue::normalizeQueueDropPolicy(const std::string &raw)
+{
+    std::string s = raw;
+    ionclaw::util::StringHelper::toLowerInPlace(s);
+
+    if (s == "old")
+    {
+        return QueueDropPolicy::Old;
+    }
+
+    if (s == "new")
+    {
+        return QueueDropPolicy::New;
+    }
+
+    if (s == "summarize")
+    {
+        return QueueDropPolicy::Summarize;
+    }
+
+    return std::nullopt;
+}
+
+QueueSettings SessionQueue::resolveQueueSettings(const config::Config &config, const std::string &channel, std::optional<QueueMode> inlineMode)
 {
     QueueSettings settings;
 
@@ -59,18 +146,16 @@ QueueSettings resolveQueueSettings(
     return settings;
 }
 
-// get or create per-session queue state
-SessionQueue::SessionQueueState &SessionQueue::getOrCreate(
-    const std::string &sessionKey, const QueueSettings &settings)
+SessionQueue::SessionQueueState &SessionQueue::getOrCreate(const std::string &sessionKey, const QueueSettings &settings)
 {
-    auto it = queues_.find(sessionKey);
+    auto it = queues.find(sessionKey);
 
-    if (it != queues_.end())
+    if (it != queues.end())
     {
         return it->second;
     }
 
-    auto &state = queues_[sessionKey];
+    auto &state = queues[sessionKey];
     state.mode = settings.mode;
     state.debounceMs = settings.debounceMs;
     state.cap = settings.cap;
@@ -79,8 +164,6 @@ SessionQueue::SessionQueueState &SessionQueue::getOrCreate(
     return state;
 }
 
-// apply drop policy when queue is at cap
-// returns true if the new message should be accepted
 bool SessionQueue::applyDropPolicy(SessionQueueState &state, const std::string &content)
 {
     if (state.items.size() < static_cast<size_t>(state.cap))
@@ -111,7 +194,7 @@ bool SessionQueue::applyDropPolicy(SessionQueueState &state, const std::string &
         {
             auto summary = state.items.front().message.content;
 
-            // collapse whitespace and truncate to 160 chars
+            // flatten newlines into spaces and cap the summary length
             std::replace(summary.begin(), summary.end(), '\n', ' ');
 
             if (summary.size() > 160)
@@ -131,10 +214,9 @@ bool SessionQueue::applyDropPolicy(SessionQueueState &state, const std::string &
     return true;
 }
 
-bool SessionQueue::enqueue(const std::string &sessionKey, const InboundMessage &msg,
-                           QueueMode mode, const QueueSettings &settings)
+bool SessionQueue::enqueue(const std::string &sessionKey, const InboundMessage &msg, QueueMode mode, const QueueSettings &settings)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex);
 
     auto &state = getOrCreate(sessionKey, settings);
 
@@ -155,22 +237,21 @@ bool SessionQueue::enqueue(const std::string &sessionKey, const InboundMessage &
     state.items.push_back(std::move(item));
     state.lastEnqueuedAt = std::chrono::steady_clock::now();
 
-    spdlog::debug("[SessionQueue] Enqueued {} message for {} (depth: {})",
-                  queueModeToString(mode), sessionKey, state.items.size());
+    spdlog::debug("[SessionQueue] Enqueued {} message for {} (depth: {})", queueModeToString(mode), sessionKey, state.items.size());
 
     // wake debounce waiters
-    cv_.notify_all();
+    cv.notify_all();
 
     return true;
 }
 
 std::vector<QueuedItem> SessionQueue::drainSteer(const std::string &sessionKey)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex);
 
-    auto it = queues_.find(sessionKey);
+    auto it = queues.find(sessionKey);
 
-    if (it == queues_.end())
+    if (it == queues.end())
     {
         return {};
     }
@@ -178,23 +259,21 @@ std::vector<QueuedItem> SessionQueue::drainSteer(const std::string &sessionKey)
     std::vector<QueuedItem> result;
     auto &items = it->second.items;
 
-    items.erase(
-        std::remove_if(items.begin(), items.end(),
-                       [&](const QueuedItem &item)
-                       {
-                           if (item.mode == QueueMode::Steer)
-                           {
-                               result.push_back(item);
-                               return true;
-                           }
+    // clang-format off
+    items.erase(std::remove_if(items.begin(), items.end(), [&](const QueuedItem &item) {
+        if (item.mode == QueueMode::Steer)
+        {
+            result.push_back(item);
+            return true;
+        }
 
-                           return false;
-                       }),
-        items.end());
+        return false;
+    }), items.end());
+    // clang-format on
 
     if (items.empty() && it->second.droppedCount == 0)
     {
-        queues_.erase(it);
+        queues.erase(it);
     }
 
     return result;
@@ -202,11 +281,11 @@ std::vector<QueuedItem> SessionQueue::drainSteer(const std::string &sessionKey)
 
 std::vector<QueuedItem> SessionQueue::drainFollowup(const std::string &sessionKey)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex);
 
-    auto it = queues_.find(sessionKey);
+    auto it = queues.find(sessionKey);
 
-    if (it == queues_.end())
+    if (it == queues.end())
     {
         return {};
     }
@@ -214,23 +293,21 @@ std::vector<QueuedItem> SessionQueue::drainFollowup(const std::string &sessionKe
     std::vector<QueuedItem> result;
     auto &items = it->second.items;
 
-    items.erase(
-        std::remove_if(items.begin(), items.end(),
-                       [&](const QueuedItem &item)
-                       {
-                           if (item.mode == QueueMode::Followup || item.mode == QueueMode::Collect)
-                           {
-                               result.push_back(item);
-                               return true;
-                           }
+    // clang-format off
+    items.erase(std::remove_if(items.begin(), items.end(), [&](const QueuedItem &item) {
+        if (item.mode == QueueMode::Followup || item.mode == QueueMode::Collect)
+        {
+            result.push_back(item);
+            return true;
+        }
 
-                           return false;
-                       }),
-        items.end());
+        return false;
+    }), items.end());
+    // clang-format on
 
     if (items.empty() && it->second.droppedCount == 0)
     {
-        queues_.erase(it);
+        queues.erase(it);
     }
 
     return result;
@@ -238,33 +315,33 @@ std::vector<QueuedItem> SessionQueue::drainFollowup(const std::string &sessionKe
 
 int SessionQueue::clear(const std::string &sessionKey)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex);
 
-    auto it = queues_.find(sessionKey);
+    auto it = queues.find(sessionKey);
 
-    if (it == queues_.end())
+    if (it == queues.end())
     {
         return 0;
     }
 
     auto count = static_cast<int>(std::min(it->second.items.size(), static_cast<size_t>(std::numeric_limits<int>::max())));
-    queues_.erase(it);
+    queues.erase(it);
 
     spdlog::debug("[SessionQueue] Cleared {} items for {}", count, sessionKey);
 
     // wake debounce waiters so they can exit
-    cv_.notify_all();
+    cv.notify_all();
 
     return count;
 }
 
 bool SessionQueue::hasPending(const std::string &sessionKey) const
 {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex);
 
-    auto it = queues_.find(sessionKey);
+    auto it = queues.find(sessionKey);
 
-    if (it == queues_.end())
+    if (it == queues.end())
     {
         return false;
     }
@@ -274,11 +351,11 @@ bool SessionQueue::hasPending(const std::string &sessionKey) const
 
 bool SessionQueue::hasInterrupt(const std::string &sessionKey) const
 {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex);
 
-    auto it = queues_.find(sessionKey);
+    auto it = queues.find(sessionKey);
 
-    if (it == queues_.end())
+    if (it == queues.end())
     {
         return false;
     }
@@ -296,11 +373,11 @@ bool SessionQueue::hasInterrupt(const std::string &sessionKey) const
 
 size_t SessionQueue::depth(const std::string &sessionKey) const
 {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex);
 
-    auto it = queues_.find(sessionKey);
+    auto it = queues.find(sessionKey);
 
-    if (it == queues_.end())
+    if (it == queues.end())
     {
         return 0;
     }
@@ -310,11 +387,11 @@ size_t SessionQueue::depth(const std::string &sessionKey) const
 
 int SessionQueue::droppedCount(const std::string &sessionKey) const
 {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex);
 
-    auto it = queues_.find(sessionKey);
+    auto it = queues.find(sessionKey);
 
-    if (it == queues_.end())
+    if (it == queues.end())
     {
         return 0;
     }
@@ -324,11 +401,11 @@ int SessionQueue::droppedCount(const std::string &sessionKey) const
 
 std::vector<std::string> SessionQueue::droppedSummaryLines(const std::string &sessionKey) const
 {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex);
 
-    auto it = queues_.find(sessionKey);
+    auto it = queues.find(sessionKey);
 
-    if (it == queues_.end())
+    if (it == queues.end())
     {
         return {};
     }
@@ -338,11 +415,11 @@ std::vector<std::string> SessionQueue::droppedSummaryLines(const std::string &se
 
 void SessionQueue::resetDroppedState(const std::string &sessionKey)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex);
 
-    auto it = queues_.find(sessionKey);
+    auto it = queues.find(sessionKey);
 
-    if (it == queues_.end())
+    if (it == queues.end())
     {
         return;
     }
@@ -368,16 +445,14 @@ std::string SessionQueue::buildCollectPrompt(const std::vector<QueuedItem> &item
     return result;
 }
 
-std::string SessionQueue::buildSummaryPrompt(int droppedCount,
-                                             const std::vector<std::string> &summaryLines)
+std::string SessionQueue::buildSummaryPrompt(int droppedCount, const std::vector<std::string> &summaryLines)
 {
     if (droppedCount <= 0)
     {
         return "";
     }
 
-    std::string result = "[Queue overflow] Dropped " + std::to_string(droppedCount) +
-                         " message" + (droppedCount > 1 ? "s" : "") + " due to cap.";
+    std::string result = "[Queue overflow] Dropped " + std::to_string(droppedCount) + " message" + (droppedCount > 1 ? "s" : "") + " due to cap.";
 
     if (!summaryLines.empty())
     {
@@ -398,11 +473,11 @@ bool SessionQueue::waitDebounce(const std::string &sessionKey, int debounceMs)
 
     while (true)
     {
-        std::unique_lock<std::mutex> lock(mutex_);
+        std::unique_lock<std::mutex> lock(mutex);
 
-        auto it = queues_.find(sessionKey);
+        auto it = queues.find(sessionKey);
 
-        if (it == queues_.end())
+        if (it == queues.end())
         {
             // queue was cleared (interrupt)
             return false;
@@ -417,14 +492,14 @@ bool SessionQueue::waitDebounce(const std::string &sessionKey, int debounceMs)
 
         auto remaining = deadline - std::chrono::duration_cast<std::chrono::milliseconds>(elapsed);
 
-        cv_.wait_for(lock, remaining);
+        cv.wait_for(lock, remaining);
     }
 }
 
 void SessionQueue::remove(const std::string &sessionKey)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    queues_.erase(sessionKey);
+    std::lock_guard<std::mutex> lock(mutex);
+    queues.erase(sessionKey);
 }
 
 } // namespace bus

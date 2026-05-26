@@ -5,7 +5,6 @@ namespace ionclaw
 namespace util
 {
 
-// return mime type for a file path based on extension
 std::string MimeType::forPath(const std::string &path)
 {
     // check 5-char extensions first

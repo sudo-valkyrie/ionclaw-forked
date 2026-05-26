@@ -1,6 +1,7 @@
 #include "ionclaw/provider/ProviderFactory.hpp"
 
 #include <algorithm>
+#include <map>
 #include <stdexcept>
 
 #include "ionclaw/provider/AnthropicProvider.hpp"
@@ -13,45 +14,25 @@ namespace ionclaw
 namespace provider
 {
 
-// resolve default base url for known providers
 std::string ProviderFactory::defaultBaseUrl(const std::string &providerName)
 {
-    if (providerName == "anthropic")
-    {
-        return "https://api.anthropic.com";
-    }
-    else if (providerName == "openai")
-    {
-        return "https://api.openai.com/v1";
-    }
-    else if (providerName == "openrouter")
-    {
-        return "https://openrouter.ai/api/v1";
-    }
-    else if (providerName == "deepseek")
-    {
-        return "https://api.deepseek.com/v1";
-    }
-    else if (providerName == "grok")
-    {
-        return "https://api.x.ai/v1";
-    }
-    else if (providerName == "google" || providerName == "gemini")
-    {
-        return "https://generativelanguage.googleapis.com/v1beta/openai";
-    }
-    else if (providerName == "kimi" || providerName == "moonshot")
-    {
-        return "https://api.moonshot.cn/v1";
-    }
+    static const std::map<std::string, std::string> defaults = {
+        {"anthropic", "https://api.anthropic.com"},
+        {"openai", "https://api.openai.com/v1"},
+        {"openrouter", "https://openrouter.ai/api/v1"},
+        {"deepseek", "https://api.deepseek.com/v1"},
+        {"grok", "https://api.x.ai/v1"},
+        {"google", "https://generativelanguage.googleapis.com/v1beta/openai"},
+        {"gemini", "https://generativelanguage.googleapis.com/v1beta/openai"},
+        {"kimi", "https://api.moonshot.cn/v1"},
+        {"moonshot", "https://api.moonshot.cn/v1"},
+    };
 
-    return "";
+    auto it = defaults.find(providerName);
+    return it != defaults.end() ? it->second : "";
 }
 
-// create provider instance by name
-std::shared_ptr<LlmProvider> ProviderFactory::create(const std::string &providerName, const std::string &apiKey,
-                                                     const std::string &baseUrl, int timeout,
-                                                     const std::map<std::string, std::string> &extraHeaders)
+std::shared_ptr<LlmProvider> ProviderFactory::create(const std::string &providerName, const std::string &apiKey, const std::string &baseUrl, int timeout, const std::map<std::string, std::string> &extraHeaders)
 {
     // resolve base url from provider name if not explicitly set
     auto resolvedUrl = baseUrl.empty() ? defaultBaseUrl(providerName) : baseUrl;
@@ -63,9 +44,7 @@ std::shared_ptr<LlmProvider> ProviderFactory::create(const std::string &provider
     }
 
     // all other providers use OpenAI-compatible API
-    if (providerName == "openai" || providerName == "openrouter" ||
-        providerName == "deepseek" || providerName == "grok" || providerName == "google" ||
-        providerName == "gemini" || providerName == "kimi" || providerName == "moonshot")
+    if (providerName == "openai" || providerName == "openrouter" || providerName == "deepseek" || providerName == "grok" || providerName == "google" || providerName == "gemini" || providerName == "kimi" || providerName == "moonshot")
     {
         return std::make_shared<OpenAiProvider>(apiKey, resolvedUrl, timeout, extraHeaders);
     }
@@ -76,10 +55,9 @@ std::shared_ptr<LlmProvider> ProviderFactory::create(const std::string &provider
         return std::make_shared<OpenAiProvider>(apiKey, resolvedUrl, timeout, extraHeaders);
     }
 
-    throw std::runtime_error("Unknown provider: " + providerName);
+    throw std::runtime_error("[ProviderFactory] Unknown provider: " + providerName);
 }
 
-// create provider instance from model string and config
 std::shared_ptr<LlmProvider> ProviderFactory::createFromModel(const std::string &model, const ionclaw::config::Config &config)
 {
     // resolve provider config from model string
@@ -110,16 +88,14 @@ std::shared_ptr<LlmProvider> ProviderFactory::createFromModel(const std::string 
     return create(providerName, apiKey, baseUrl, timeout, headers);
 }
 
-// create a failover provider from multiple profile configs
-std::shared_ptr<LlmProvider> ProviderFactory::createFailoverFromProfiles(
-    const std::vector<ionclaw::config::ProfileConfig> &profiles,
-    const std::string &defaultModel,
-    const ionclaw::config::Config &config)
+std::shared_ptr<LlmProvider> ProviderFactory::createFailoverFromProfiles(const std::vector<ionclaw::config::ProfileConfig> &profiles, const std::string &defaultModel, const ionclaw::config::Config &config)
 {
     // sort by priority (lower = higher priority)
     auto sorted = profiles;
-    std::sort(sorted.begin(), sorted.end(), [](const auto &a, const auto &b)
-              { return a.priority < b.priority; });
+
+    // clang-format off
+    std::sort(sorted.begin(), sorted.end(), [](const auto &a, const auto &b) { return a.priority < b.priority; });
+    // clang-format on
 
     std::vector<std::shared_ptr<LlmProvider>> providers;
     std::vector<std::string> names;
@@ -169,12 +145,11 @@ std::shared_ptr<LlmProvider> ProviderFactory::createFailoverFromProfiles(
 
     if (providers.empty())
     {
-        throw std::runtime_error("No valid profiles for failover provider");
+        throw std::runtime_error("[ProviderFactory] No valid profiles for failover provider");
     }
 
     // skip FailoverProvider wrapper only if single profile has no custom model params
-    if (providers.size() == 1 &&
-        (!profileParams[0].is_object() || profileParams[0].empty()))
+    if (providers.size() == 1 && (!profileParams[0].is_object() || profileParams[0].empty()))
     {
         return providers[0];
     }

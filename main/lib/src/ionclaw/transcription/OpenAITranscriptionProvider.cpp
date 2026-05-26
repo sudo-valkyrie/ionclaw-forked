@@ -25,34 +25,32 @@ namespace ionclaw
 namespace transcription
 {
 
-// in-memory part source for multipart form uploads
-OpenAITranscriptionProvider::StringPartSource::StringPartSource(
-    const std::string &data, const std::string &mediaType, const std::string &filename)
+OpenAITranscriptionProvider::StringPartSource::StringPartSource(const std::string &data, const std::string &mediaType, const std::string &filename)
     : Poco::Net::PartSource(mediaType)
-    , data_(data)
-    , stream_(data_)
-    , filename_(filename)
+    , content(data)
+    , contentStream(content)
+    , fileName(filename)
 {
 }
 
 std::istream &OpenAITranscriptionProvider::StringPartSource::stream()
 {
-    return stream_;
+    return contentStream;
 }
 
 const std::string &OpenAITranscriptionProvider::StringPartSource::filename() const
 {
-    return filename_;
+    return fileName;
 }
 
 OpenAITranscriptionProvider::OpenAITranscriptionProvider(const std::string &providerName)
-    : providerName_(providerName)
+    : name(providerName)
 {
 }
 
 std::string OpenAITranscriptionProvider::providerName() const
 {
-    return providerName_;
+    return name;
 }
 
 std::string OpenAITranscriptionProvider::audioMimeType(const std::string &format)
@@ -101,25 +99,23 @@ std::string OpenAITranscriptionProvider::stripModelPrefix(const std::string &mod
     return model;
 }
 
-TranscriptionResult OpenAITranscriptionProvider::transcribe(const std::string &audioData,
-                                                            const std::string &format,
-                                                            const TranscriptionContext &context) const
+TranscriptionResult OpenAITranscriptionProvider::transcribe(const std::string &audioData, const std::string &format, const TranscriptionContext &context) const
 {
     if (!context.config)
     {
-        spdlog::error("[transcription] no config available");
+        spdlog::error("[OpenAITranscriptionProvider] no config available");
         return {};
     }
 
-    auto apiKey = context.config->resolveApiKey(providerName_);
+    auto apiKey = context.config->resolveApiKey(name);
 
     if (apiKey.empty())
     {
-        spdlog::error("[transcription] no API key for provider '{}'", providerName_);
+        spdlog::error("[OpenAITranscriptionProvider] no API key for provider '{}'", name);
         return {};
     }
 
-    auto baseUrl = context.config->resolveBaseUrl(providerName_);
+    auto baseUrl = context.config->resolveBaseUrl(name);
     auto modelId = stripModelPrefix(context.model);
 
     // build URL
@@ -131,7 +127,7 @@ TranscriptionResult OpenAITranscriptionProvider::transcribe(const std::string &a
         urlStr = baseUrl + "v1/audio/transcriptions";
     }
 
-    spdlog::info("[transcription] calling {} with model '{}' ({} bytes audio)", urlStr, modelId, audioData.size());
+    spdlog::info("[OpenAITranscriptionProvider] calling {} with model '{}' ({} bytes audio)", urlStr, modelId, audioData.size());
 
     Poco::URI uri(urlStr);
     auto host = uri.getHost();
@@ -150,13 +146,9 @@ TranscriptionResult OpenAITranscriptionProvider::transcribe(const std::string &a
     if (uri.getScheme() == "https")
     {
 #ifdef _WIN32
-        Poco::Net::Context::Ptr ctx = new Poco::Net::Context(
-            Poco::Net::Context::CLIENT_USE, "");
+        Poco::Net::Context::Ptr ctx = new Poco::Net::Context(Poco::Net::Context::CLIENT_USE, "");
 #else
-        Poco::Net::Context::Ptr ctx = new Poco::Net::Context(
-            Poco::Net::Context::CLIENT_USE, "", "", "",
-            Poco::Net::Context::VERIFY_NONE, 9, true,
-            "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
+        Poco::Net::Context::Ptr ctx = new Poco::Net::Context(Poco::Net::Context::CLIENT_USE, "", "", "", Poco::Net::Context::VERIFY_NONE, 9, true, "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
 #endif
         session = std::make_unique<Poco::Net::HTTPSClientSession>(host, port, ctx);
     }
@@ -201,7 +193,7 @@ TranscriptionResult OpenAITranscriptionProvider::transcribe(const std::string &a
 
     if (status != 200)
     {
-        spdlog::error("[transcription] API returned HTTP {}: {}", status, ionclaw::util::StringHelper::utf8SafeTruncate(respBody, 500));
+        spdlog::error("[OpenAITranscriptionProvider] API returned HTTP {}: {}", status, ionclaw::util::StringHelper::utf8SafeTruncate(respBody, 500));
         return {};
     }
 
@@ -215,15 +207,13 @@ TranscriptionResult OpenAITranscriptionProvider::transcribe(const std::string &a
         result.language = json.value("language", "");
         result.durationSeconds = json.value("duration", 0.0);
 
-        spdlog::info("[transcription] transcribed {} seconds of audio (lang={}): {}",
-                     result.durationSeconds, result.language,
-                     ionclaw::util::StringHelper::utf8SafeTruncate(result.text, 100));
+        spdlog::info("[OpenAITranscriptionProvider] transcribed {} seconds of audio (lang={}): {}", result.durationSeconds, result.language, ionclaw::util::StringHelper::utf8SafeTruncate(result.text, 100));
 
         return result;
     }
     catch (const std::exception &e)
     {
-        spdlog::error("[transcription] failed to parse response: {}", e.what());
+        spdlog::error("[OpenAITranscriptionProvider] failed to parse response: {}", e.what());
         return {};
     }
 }

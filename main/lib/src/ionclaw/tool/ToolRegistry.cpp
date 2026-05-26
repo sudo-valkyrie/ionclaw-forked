@@ -321,9 +321,7 @@ std::map<std::string, std::string> ToolRegistry::getToolDescriptions() const
     return descriptions;
 }
 
-std::vector<std::string> ToolRegistry::applyToolPolicy(
-    const std::vector<std::string> &toolNames,
-    const ionclaw::config::ToolPolicy &policy)
+std::vector<std::string> ToolRegistry::applyToolPolicy(const std::vector<std::string> &toolNames, const ionclaw::config::ToolPolicy &policy)
 {
     // build deny set (case-insensitive)
     std::set<std::string> denySet;

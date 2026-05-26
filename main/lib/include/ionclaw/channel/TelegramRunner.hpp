@@ -25,16 +25,7 @@ namespace channel
 class TelegramRunner
 {
 public:
-    TelegramRunner(
-        std::shared_ptr<ionclaw::bus::MessageBus> bus,
-        std::shared_ptr<ionclaw::session::SessionManager> sessionManager,
-        std::shared_ptr<ionclaw::task::TaskManager> taskManager,
-        std::shared_ptr<ionclaw::bus::EventDispatcher> dispatcher,
-        std::string token,
-        std::vector<std::string> allowedUsers,
-        std::string proxy,
-        bool replyToMessage,
-        std::string publicDir);
+    TelegramRunner(std::shared_ptr<ionclaw::bus::MessageBus> bus, std::shared_ptr<ionclaw::session::SessionManager> sessionManager, std::shared_ptr<ionclaw::task::TaskManager> taskManager, std::shared_ptr<ionclaw::bus::EventDispatcher> dispatcher, std::string token, std::vector<std::string> allowedUsers, std::string proxy, bool replyToMessage, std::string publicDir);
 
     ~TelegramRunner();
 
@@ -47,7 +38,6 @@ private:
     bool isAllowed(const std::string &userId, const std::string &username) const;
     void processUpdate(const nlohmann::json &update);
 
-    // telegram api helpers
     static const char *TELEGRAM_API;
     static constexpr int POLL_TIMEOUT_SEC = 30;
     static constexpr int OUTBOUND_POLL_MS = 500;
@@ -56,17 +46,16 @@ private:
     static std::string telegramGet(const std::string &token, const std::string &path, const std::string &proxy, int timeoutSeconds = 30);
     static std::string telegramPost(const std::string &token, const std::string &path, const std::string &body, const std::string &proxy);
 
-    // media helpers
     std::string downloadTelegramFile(const std::string &fileId);
     std::string mediaDatePath() const;
 
-    // outbound helpers
     void sendTypingAction(const std::string &chatId);
     void sendTextMessage(const std::string &chatId, const std::string &text, int replyToMessageId = 0);
     void sendChunkedMessage(const std::string &chatId, const std::string &text, int replyToMessageId = 0);
 
-    // markdown to telegram html
     static std::string markdownToTelegramHtml(const std::string &md);
+    static std::string escapeHtml(const std::string &s);
+    static size_t findClosing(const std::string &s, size_t pos, const std::string &marker);
 
     std::shared_ptr<ionclaw::bus::MessageBus> bus;
     std::shared_ptr<ionclaw::session::SessionManager> sessionManager;
@@ -83,7 +72,6 @@ private:
     std::thread outboundThread;
     int64_t lastUpdateId{0};
 
-    // typing ticker: periodic sendChatAction while task is processing
     static constexpr int TYPING_INTERVAL_SEC = 4;
     void startTypingTicker(const std::string &chatId);
     void stopTypingTicker(const std::string &chatId);
@@ -91,10 +79,10 @@ private:
     void registerTypingHandler();
     void unregisterTypingHandler();
 
-    std::mutex typingMutex_;
-    std::condition_variable typingCv_;
-    std::unordered_map<std::string, std::thread> typingTickers_;
-    std::unordered_map<std::string, bool> typingActive_;
+    std::mutex typingMutex;
+    std::condition_variable typingCv;
+    std::unordered_map<std::string, std::thread> typingTickers;
+    std::unordered_map<std::string, bool> typingActive;
 };
 
 } // namespace channel

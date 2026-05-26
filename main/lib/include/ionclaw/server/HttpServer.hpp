@@ -19,14 +19,7 @@ namespace server
 class HttpServer
 {
 public:
-    HttpServer(
-        std::shared_ptr<Routes> routes,
-        std::shared_ptr<Auth> auth,
-        std::shared_ptr<WebSocketManager> wsManager,
-        std::shared_ptr<ionclaw::mcp::McpDispatcher> mcpDispatcher,
-        const ionclaw::config::ServerConfig &serverConfig,
-        const std::string &webDir,
-        const std::string &publicDir);
+    HttpServer(std::shared_ptr<Routes> routes, std::shared_ptr<Auth> auth, std::shared_ptr<WebSocketManager> wsManager, std::shared_ptr<ionclaw::mcp::McpDispatcher> mcpDispatcher, const ionclaw::config::ServerConfig &serverConfig, const std::string &webDir, const std::string &publicDir);
 
     void start();
     void stop();

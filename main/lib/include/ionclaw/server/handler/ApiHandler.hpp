@@ -20,9 +20,7 @@ namespace handler
 class ApiHandler final : public Poco::Net::HTTPRequestHandler
 {
 public:
-    ApiHandler(
-        std::shared_ptr<Auth> auth,
-        std::shared_ptr<Routes> routes);
+    ApiHandler(std::shared_ptr<Auth> auth, std::shared_ptr<Routes> routes);
 
     void handleRequest(Poco::Net::HTTPServerRequest &req, Poco::Net::HTTPServerResponse &resp) override;
 

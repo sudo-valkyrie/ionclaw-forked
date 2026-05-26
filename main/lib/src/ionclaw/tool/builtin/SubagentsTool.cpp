@@ -32,8 +32,7 @@ ToolResult SubagentsTool::execute(const nlohmann::json &params, const ToolContex
 
         for (const auto &record : children)
         {
-            result += "- " + record.runId + " [" +
-                      ionclaw::agent::SubagentRunRecord::statusToString(record.status) + "]";
+            result += "- " + record.runId + " [" + ionclaw::agent::SubagentRunRecord::statusToString(record.status) + "]";
 
             if (!record.task.empty())
             {
@@ -84,8 +83,7 @@ ToolResult SubagentsTool::execute(const nlohmann::json &params, const ToolContex
             return "No active runs found to kill for run_id: " + runId;
         }
 
-        return "Killed " + std::to_string(killed) + " run(s)" +
-               (cascade ? " (including descendants)" : "");
+        return "Killed " + std::to_string(killed) + " run(s)" + (cascade ? " (including descendants)" : "");
     }
     else if (action == "status")
     {

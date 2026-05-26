@@ -86,12 +86,12 @@ namespace util
 
 std::string JwtHelper::create(const nlohmann::json &, const std::string &, int)
 {
-    throw std::runtime_error("JWT is not supported (built without SSL)");
+    throw std::runtime_error("[JwtHelper] JWT is not supported (built without SSL)");
 }
 
 nlohmann::json JwtHelper::verify(const std::string &, const std::string &)
 {
-    throw std::runtime_error("JWT is not supported (built without SSL)");
+    throw std::runtime_error("[JwtHelper] JWT is not supported (built without SSL)");
 }
 
 bool JwtHelper::isValid(const std::string &, const std::string &)

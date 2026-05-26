@@ -55,9 +55,7 @@ ToolResult CronTool::execute(const nlohmann::json &params, const ToolContext &co
         ionclaw::cron::CronSchedule schedule;
         bool deleteAfterRun = false;
 
-        auto tz = params.contains("tz") && params["tz"].is_string()
-                      ? params["tz"].get<std::string>()
-                      : "";
+        auto tz = params.contains("tz") && params["tz"].is_string() ? params["tz"].get<std::string>() : "";
 
         if (!tz.empty() && !params.contains("cron_expr"))
         {
@@ -121,14 +119,7 @@ ToolResult CronTool::execute(const nlohmann::json &params, const ToolContext &co
             return "Error: one of 'every_seconds', 'cron_expr', or 'at' is required";
         }
 
-        auto job = context.cronService->addJob(
-            ionclaw::util::StringHelper::utf8SafeTruncate(message, 30),
-            schedule,
-            message,
-            true,
-            channel,
-            to,
-            deleteAfterRun);
+        auto job = context.cronService->addJob(ionclaw::util::StringHelper::utf8SafeTruncate(message, 30), schedule, message, true, channel, to, deleteAfterRun);
 
         return "Created job '" + job.name + "' (id: " + job.id + ")";
     }
@@ -172,9 +163,7 @@ ToolResult CronTool::execute(const nlohmann::json &params, const ToolContext &co
             patch.payload.message = params["message"].get<std::string>();
         }
 
-        auto tz = params.contains("tz") && params["tz"].is_string()
-                      ? params["tz"].get<std::string>()
-                      : "";
+        auto tz = params.contains("tz") && params["tz"].is_string() ? params["tz"].get<std::string>() : "";
 
         // update schedule if a new schedule type is provided
         if (params.contains("every_seconds") && params["every_seconds"].is_number_integer())

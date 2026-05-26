@@ -48,7 +48,6 @@ struct Task
     static TaskState stateFromString(const std::string &str);
 
 private:
-    // json deserialization helpers
     static std::string jsonString(const nlohmann::json &j, const std::string &key);
     static int jsonInt(const nlohmann::json &j, const std::string &key);
     static std::chrono::system_clock::time_point parseIso8601(const std::string &str);

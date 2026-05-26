@@ -21,9 +21,7 @@ class TaskManager
 public:
     TaskManager(const std::string &tasksFilePath, std::shared_ptr<ionclaw::bus::EventDispatcher> dispatcher);
 
-    Task createTask(const std::string &title, const std::string &description,
-                    const std::string &channel, const std::string &chatId,
-                    const std::string &parentTaskId = "");
+    Task createTask(const std::string &title, const std::string &description, const std::string &channel, const std::string &chatId, const std::string &parentTaskId = "");
 
     void updateState(const std::string &taskId, TaskState state, const std::string &result = "");
     void setAgent(const std::string &taskId, const std::string &agentName);
@@ -44,16 +42,14 @@ private:
     std::string tasksFilePath;
     std::map<std::string, Task> tasks;
     mutable std::mutex mutex;
-    std::mutex fileMutex; // protects file I/O (appendToFile, save, recoverStaleTasks)
+    std::mutex fileMutex;
     std::shared_ptr<ionclaw::bus::EventDispatcher> dispatcher;
 
-    // parse an ISO 8601 timestamp into a time_point
     static std::chrono::system_clock::time_point parseTimestamp(const std::string &str);
 
     void broadcastUpdate(const Task &task);
     void appendToFile(const Task &task);
 
-    // shared lock→find→mutate→snapshot→persist→broadcast pattern
     template <typename Mutator>
     void mutateTask(const std::string &taskId, const char *caller, Mutator &&mutate);
 };

@@ -13,10 +13,7 @@ namespace ionclaw
 namespace image
 {
 
-std::string ImageGeneratorHelper::saveToPublicMedia(const std::string &imageData,
-                                                    const std::string &publicPath,
-                                                    const std::string &filename,
-                                                    const std::string &publicUrl)
+std::string ImageGeneratorHelper::saveToPublicMedia(const std::string &imageData, const std::string &publicPath, const std::string &filename, const std::string &publicUrl)
 {
     namespace fs = std::filesystem;
 
@@ -29,7 +26,7 @@ std::string ImageGeneratorHelper::saveToPublicMedia(const std::string &imageData
 
     if (safeName.empty() || safeName == "." || safeName == "..")
     {
-        spdlog::error("[ImageGenerator] Invalid filename: {}", filename);
+        spdlog::error("[ImageGeneratorHelper] Invalid filename: {}", filename);
         return "";
     }
 
@@ -46,7 +43,7 @@ std::string ImageGeneratorHelper::saveToPublicMedia(const std::string &imageData
 
     if (!outFile.good())
     {
-        spdlog::error("[ImageGenerator] Failed to write image to: {}", outputPath);
+        spdlog::error("[ImageGeneratorHelper] Failed to write image to: {}", outputPath);
         outFile.close();
         return "";
     }
@@ -112,11 +109,7 @@ std::string ImageGeneratorHelper::extractModelId(const std::string &model)
     return pos != std::string::npos ? model.substr(pos + 1) : model;
 }
 
-std::vector<std::string> ImageGeneratorHelper::resolveReferencePaths(const nlohmann::json &params,
-                                                                     const std::string &projectPath,
-                                                                     const std::string &workspacePath,
-                                                                     const std::string &publicPath,
-                                                                     bool restrictToWorkspace)
+std::vector<std::string> ImageGeneratorHelper::resolveReferencePaths(const nlohmann::json &params, const std::string &projectPath, const std::string &workspacePath, const std::string &publicPath, bool restrictToWorkspace)
 {
     std::vector<std::string> resolved;
 
@@ -146,23 +139,20 @@ std::vector<std::string> ImageGeneratorHelper::resolveReferencePaths(const nlohm
         }
         catch (const std::exception &e)
         {
-            spdlog::error("[ImageGenerator] Path resolution failed for '{}': {}", refPath, e.what());
+            spdlog::error("[ImageGeneratorHelper] Path resolution failed for '{}': {}", refPath, e.what());
         }
     }
 
     return resolved;
 }
 
-std::string ImageGeneratorHelper::decodeAndSave(const std::string &responseBody,
-                                                const std::string &publicPath,
-                                                const std::string &filename,
-                                                const std::string &publicUrl)
+std::string ImageGeneratorHelper::decodeAndSave(const std::string &responseBody, const std::string &publicPath, const std::string &filename, const std::string &publicUrl)
 {
     auto json = nlohmann::json::parse(responseBody, nullptr, false);
 
     if (json.is_discarded())
     {
-        spdlog::error("[ImageGenerator] Failed to parse response JSON");
+        spdlog::error("[ImageGeneratorHelper] Failed to parse response JSON");
         return "";
     }
 
@@ -170,7 +160,7 @@ std::string ImageGeneratorHelper::decodeAndSave(const std::string &responseBody,
 
     if (data.empty())
     {
-        spdlog::error("[ImageGenerator] No image data in response");
+        spdlog::error("[ImageGeneratorHelper] No image data in response");
         return "";
     }
 
@@ -178,7 +168,7 @@ std::string ImageGeneratorHelper::decodeAndSave(const std::string &responseBody,
 
     if (b64.empty())
     {
-        spdlog::error("[ImageGenerator] No base64 image data in response");
+        spdlog::error("[ImageGeneratorHelper] No base64 image data in response");
         return "";
     }
 

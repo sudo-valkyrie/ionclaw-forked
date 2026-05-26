@@ -12,7 +12,7 @@ void Routes::handleChannelsList(Poco::Net::HTTPServerRequest &, Poco::Net::HTTPS
     nlohmann::json result = nlohmann::json::object();
 
     {
-        std::lock_guard<std::mutex> lock(configMutex_);
+        std::lock_guard<std::mutex> lock(configMutex);
 
         for (const auto &[name, ch] : config->channels)
         {
@@ -32,7 +32,7 @@ void Routes::handleChannelGet(Poco::Net::HTTPServerRequest &, Poco::Net::HTTPSer
     nlohmann::json out;
 
     {
-        std::lock_guard<std::mutex> lock(configMutex_);
+        std::lock_guard<std::mutex> lock(configMutex);
         auto it = config->channels.find(name);
 
         if (it == config->channels.end())
@@ -71,7 +71,7 @@ void Routes::handleChannelUpdate(Poco::Net::HTTPServerRequest &req, Poco::Net::H
 {
     try
     {
-        std::lock_guard<std::mutex> lock(configMutex_);
+        std::lock_guard<std::mutex> lock(configMutex);
         auto body = nlohmann::json::parse(readBody(req));
         auto configData = body.value("config", nlohmann::json::object());
 
@@ -135,7 +135,7 @@ void Routes::handleChannelStart(Poco::Net::HTTPServerRequest &, Poco::Net::HTTPS
 {
     try
     {
-        std::lock_guard<std::mutex> lock(configMutex_);
+        std::lock_guard<std::mutex> lock(configMutex);
         auto it = config->channels.find(name);
 
         if (it == config->channels.end())
@@ -167,7 +167,7 @@ void Routes::handleChannelStop(Poco::Net::HTTPServerRequest &, Poco::Net::HTTPSe
 {
     try
     {
-        std::lock_guard<std::mutex> lock(configMutex_);
+        std::lock_guard<std::mutex> lock(configMutex);
         auto it = config->channels.find(name);
 
         if (it == config->channels.end())

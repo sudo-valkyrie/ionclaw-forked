@@ -40,7 +40,6 @@ namespace builtin
 // maximum response body size before truncation
 const size_t HttpClientTool::MAX_RESPONSE_BYTES = 50 * 1024; // 50KB
 
-// percent-encode per rfc 5849 (unreserved: A-Z a-z 0-9 - . _ ~)
 std::string HttpClientTool::percentEncode(const std::string &value)
 {
     std::ostringstream out;
@@ -62,7 +61,6 @@ std::string HttpClientTool::percentEncode(const std::string &value)
     return out.str();
 }
 
-// generate random nonce for oauth1
 std::string HttpClientTool::generateNonce()
 {
     static const char chars[] = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -81,20 +79,9 @@ std::string HttpClientTool::generateNonce()
     return nonce;
 }
 
-// build oauth1 authorization header per rfc 5849
-std::string HttpClientTool::buildOAuth1Header(
-    const std::string &method,
-    const std::string &url,
-    const std::string &consumerKey,
-    const std::string &consumerSecret,
-    const std::string &accessToken,
-    const std::string &tokenSecret,
-    const std::vector<std::pair<std::string, std::string>> &bodyParams)
+std::string HttpClientTool::buildOAuth1Header(const std::string &method, const std::string &url, const std::string &consumerKey, const std::string &consumerSecret, const std::string &accessToken, const std::string &tokenSecret, const std::vector<std::pair<std::string, std::string>> &bodyParams)
 {
-    auto timestamp = std::to_string(
-        std::chrono::duration_cast<std::chrono::seconds>(
-            std::chrono::system_clock::now().time_since_epoch())
-            .count());
+    auto timestamp = std::to_string(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count());
     auto nonce = generateNonce();
 
     // collect oauth params
@@ -140,8 +127,7 @@ std::string HttpClientTool::buildOAuth1Header(
     // build base url (scheme + host + path, no query)
     std::string baseUrl = uri.getScheme() + "://" + uri.getHost();
 
-    if ((uri.getScheme() == "http" && uri.getPort() != 80) ||
-        (uri.getScheme() == "https" && uri.getPort() != 443))
+    if ((uri.getScheme() == "http" && uri.getPort() != 80) || (uri.getScheme() == "https" && uri.getPort() != 443))
     {
         baseUrl += ":" + std::to_string(uri.getPort());
     }
@@ -175,21 +161,13 @@ std::string HttpClientTool::buildOAuth1Header(
     return header.str();
 }
 
-// apply auth profile to request headers
-void HttpClientTool::applyAuth(
-    const std::string &profileName,
-    const ionclaw::config::Config &config,
-    const std::string &method,
-    const std::string &url,
-    std::map<std::string, std::string> &headers,
-    const std::string &body,
-    const std::string &contentType)
+void HttpClientTool::applyAuth(const std::string &profileName, const ionclaw::config::Config &config, const std::string &method, const std::string &url, std::map<std::string, std::string> &headers, const std::string &body, const std::string &contentType)
 {
     auto it = config.credentials.find(profileName);
 
     if (it == config.credentials.end())
     {
-        throw std::runtime_error("auth profile not found: " + profileName);
+        throw std::runtime_error("[HttpClientTool] auth profile not found: " + profileName);
     }
 
     const auto &cred = it->second;
@@ -215,9 +193,7 @@ void HttpClientTool::applyAuth(
             }
         }
 
-        headers["Authorization"] = buildOAuth1Header(
-            method, url, consumerKey, consumerSecret,
-            accessToken, accessTokenSecret, bodyParams);
+        headers["Authorization"] = buildOAuth1Header(method, url, consumerKey, consumerSecret, accessToken, accessTokenSecret, bodyParams);
     }
 
     // bearer token auth
@@ -264,11 +240,10 @@ void HttpClientTool::applyAuth(
     // unsupported auth type
     else
     {
-        throw std::runtime_error("unsupported auth type: " + cred.type);
+        throw std::runtime_error("[HttpClientTool] unsupported auth type: " + cred.type);
     }
 }
 
-// execute http request
 ToolResult HttpClientTool::execute(const nlohmann::json &params, const ToolContext &context)
 {
     auto method = params.at("method").get<std::string>();
@@ -318,8 +293,7 @@ ToolResult HttpClientTool::execute(const nlohmann::json &params, const ToolConte
     {
         try
         {
-            applyAuth(params["auth"].get<std::string>(), *context.config,
-                      method, url, headers, body, contentTypeParam);
+            applyAuth(params["auth"].get<std::string>(), *context.config, method, url, headers, body, contentTypeParam);
         }
         catch (const std::exception &e)
         {
@@ -375,9 +349,7 @@ ToolResult HttpClientTool::execute(const nlohmann::json &params, const ToolConte
 
         try
         {
-            auto response = ionclaw::util::HttpClient::request(
-                method, url, headers, body, timeout, followRedirects,
-                ionclaw::util::SsrfGuard::validateUrl);
+            auto response = ionclaw::util::HttpClient::request(method, url, headers, body, timeout, followRedirects, ionclaw::util::SsrfGuard::validateUrl);
 
             if (response.statusCode < 200 || response.statusCode >= 400)
             {
@@ -460,15 +432,9 @@ ToolResult HttpClientTool::execute(const nlohmann::json &params, const ToolConte
             if (scheme == "https")
             {
 #ifdef _WIN32
-                Poco::Net::Context::Ptr context = new Poco::Net::Context(
-                    Poco::Net::Context::CLIENT_USE, "");
+                Poco::Net::Context::Ptr context = new Poco::Net::Context(Poco::Net::Context::CLIENT_USE, "");
 #else
-                Poco::Net::Context::Ptr context = new Poco::Net::Context(
-                    Poco::Net::Context::CLIENT_USE,
-                    "", "", "",
-                    Poco::Net::Context::VERIFY_NONE,
-                    9, true,
-                    "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
+                Poco::Net::Context::Ptr context = new Poco::Net::Context(Poco::Net::Context::CLIENT_USE, "", "", "", Poco::Net::Context::VERIFY_NONE, 9, true, "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
 #endif
                 session = std::make_unique<Poco::Net::HTTPSClientSession>(host, port, context);
             }
@@ -528,9 +494,7 @@ ToolResult HttpClientTool::execute(const nlohmann::json &params, const ToolConte
     // standard request
     try
     {
-        auto response = ionclaw::util::HttpClient::request(
-            method, url, headers, body, timeout, followRedirects,
-            ionclaw::util::SsrfGuard::validateUrl);
+        auto response = ionclaw::util::HttpClient::request(method, url, headers, body, timeout, followRedirects, ionclaw::util::SsrfGuard::validateUrl);
 
         bool truncated = false;
         auto responseBody = response.body;
@@ -566,7 +530,6 @@ ToolResult HttpClientTool::execute(const nlohmann::json &params, const ToolConte
     }
 }
 
-// schema definition
 ToolSchema HttpClientTool::schema() const
 {
     return {

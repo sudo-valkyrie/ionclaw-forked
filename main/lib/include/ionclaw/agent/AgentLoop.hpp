@@ -39,14 +39,12 @@ using AgentEventCallback = std::function<void(const AgentEvent &event)>;
 
 struct UsageTracker
 {
-    // accumulated across all calls
     int64_t promptTokens = 0;
     int64_t completionTokens = 0;
     int64_t totalTokens = 0;
     int64_t cacheReadTokens = 0;
     int64_t cacheWriteTokens = 0;
 
-    // last individual call (for accurate context size estimation)
     int64_t lastCallPromptTokens = 0;
     int64_t lastCallCompletionTokens = 0;
     int64_t lastCallTotalTokens = 0;
@@ -66,8 +64,6 @@ struct StreamResult
     nlohmann::json usage;
 };
 
-// per-turn mutable state, stack-allocated in processMessage to avoid data races
-// when maxConcurrent > 1 (multiple threads sharing the same AgentLoop instance)
 struct TurnState
 {
     std::string lastSentContent;
@@ -81,19 +77,9 @@ struct TurnState
 class AgentLoop
 {
 public:
-    AgentLoop(
-        std::shared_ptr<ionclaw::provider::LlmProvider> provider,
-        std::shared_ptr<ionclaw::tool::ToolRegistry> toolRegistry,
-        std::shared_ptr<ionclaw::session::SessionManager> sessionManager,
-        std::shared_ptr<ionclaw::task::TaskManager> taskManager,
-        std::shared_ptr<ionclaw::bus::EventDispatcher> dispatcher,
-        const ionclaw::config::AgentConfig &agentConfig,
-        const std::string &agentName);
+    AgentLoop(std::shared_ptr<ionclaw::provider::LlmProvider> provider, std::shared_ptr<ionclaw::tool::ToolRegistry> toolRegistry, std::shared_ptr<ionclaw::session::SessionManager> sessionManager, std::shared_ptr<ionclaw::task::TaskManager> taskManager, std::shared_ptr<ionclaw::bus::EventDispatcher> dispatcher, const ionclaw::config::AgentConfig &agentConfig, const std::string &agentName);
 
-    void processMessage(
-        const ionclaw::bus::InboundMessage &message,
-        const std::string &systemPrompt,
-        AgentEventCallback callback);
+    void processMessage(const ionclaw::bus::InboundMessage &message, const std::string &systemPrompt, AgentEventCallback callback);
 
     void stop();
 
@@ -140,38 +126,13 @@ private:
 
     nlohmann::json resolveMedia(const std::vector<std::string> &paths, const std::string &projectRoot);
 
-    std::pair<std::string, std::vector<nlohmann::json>> runAgentLoop(
-        std::vector<ionclaw::provider::Message> &messages,
-        const std::string &taskId,
-        const std::string &chatId,
-        const std::string &sessionKey,
-        const std::string &effectiveName,
-        const ionclaw::tool::ToolContext &toolContext,
-        AgentEventCallback &callback,
-        TurnState &turnState);
+    std::pair<std::string, std::vector<nlohmann::json>> runAgentLoop(std::vector<ionclaw::provider::Message> &messages, const std::string &taskId, const std::string &chatId, const std::string &sessionKey, const std::string &effectiveName, const ionclaw::tool::ToolContext &toolContext, AgentEventCallback &callback, TurnState &turnState);
 
-    bool tryMemoryFlush(
-        std::vector<ionclaw::provider::Message> &messages,
-        const ionclaw::tool::ToolContext &toolContext,
-        const nlohmann::json &modelParams,
-        TurnState &turnState);
+    bool tryMemoryFlush(std::vector<ionclaw::provider::Message> &messages, const ionclaw::tool::ToolContext &toolContext, const nlohmann::json &modelParams, TurnState &turnState);
 
-    void compactWithHooks(
-        std::vector<ionclaw::provider::Message> &messages,
-        const std::string &sessionKey,
-        const std::string &taskId,
-        const nlohmann::json &modelParams,
-        TurnState &turnState,
-        const ionclaw::tool::ToolContext *toolContext = nullptr);
+    void compactWithHooks(std::vector<ionclaw::provider::Message> &messages, const std::string &sessionKey, const std::string &taskId, const nlohmann::json &modelParams, TurnState &turnState, const ionclaw::tool::ToolContext *toolContext = nullptr);
 
-    StreamResult consumeStream(
-        const std::vector<ionclaw::provider::Message> &messages,
-        const std::string &taskId,
-        const std::string &chatId,
-        const std::string &effectiveName,
-        UsageTracker &usageTracker,
-        AgentEventCallback &callback,
-        const nlohmann::json &modelParams);
+    StreamResult consumeStream(const std::vector<ionclaw::provider::Message> &messages, const std::string &taskId, const std::string &chatId, const std::string &effectiveName, UsageTracker &usageTracker, AgentEventCallback &callback, const nlohmann::json &modelParams);
 };
 
 } // namespace agent

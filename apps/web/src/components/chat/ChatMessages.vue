@@ -65,27 +65,21 @@ watch(
     },
   ],
   scrollToBottom,
-  { flush: 'post', immediate: true }
+  { flush: 'post', immediate: true },
 )
 </script>
 
 <template>
   <div ref="container" class="chat-messages">
     <!-- Persisted messages -->
-    <div
-      v-for="(msg, i) in messages"
-      :key="i"
-      :class="['message', msg.role]"
-    >
+    <div v-for="(msg, i) in messages" :key="i" :class="['message', msg.role]">
       <div class="message-avatar">
         <i v-if="msg.role === 'user'" class="pi pi-user"></i>
         <i v-else-if="msg.role === 'system'" class="pi pi-exclamation-triangle"></i>
         <i v-else class="pi pi-sparkles"></i>
       </div>
       <div class="message-body">
-        <div v-if="msg.agent_name" class="agent-label">
-          <i class="pi pi-user"></i> {{ msg.agent_name }}
-        </div>
+        <div v-if="msg.agent_name" class="agent-label"><i class="pi pi-user"></i> {{ msg.agent_name }}</div>
         <div v-if="msg.media?.length" class="message-media">
           <template v-for="(path, k) in msg.media" :key="k">
             <img v-if="isImage(path)" :src="mediaUrl(path)" class="media-thumb" />
@@ -96,7 +90,11 @@ watch(
         <!-- Content blocks array (assistant messages) -->
         <template v-if="Array.isArray(msg.content)">
           <template v-for="(block, k) in msg.content" :key="k">
-            <div v-if="block.type === 'text' && block.text" class="message-content" v-html="renderMarkdown(block.text)"></div>
+            <div
+              v-if="block.type === 'text' && block.text"
+              class="message-content"
+              v-html="renderMarkdown(block.text)"
+            ></div>
             <div v-else-if="block.type === 'tool_use'" class="tool-use-item">
               <i class="pi pi-cog tool-icon"></i>
               <span class="tool-name">{{ humanizeToolName(block.name) }}</span>
@@ -120,14 +118,16 @@ watch(
           <i class="pi pi-user"></i> {{ liveMessage.agent_name }}
         </div>
         <template v-for="(block, k) in liveMessage.content" :key="k">
-          <div v-if="block.type === 'text' && block.text" class="message-content" v-html="renderMarkdown(block.text)"></div>
+          <div
+            v-if="block.type === 'text' && block.text"
+            class="message-content"
+            v-html="renderMarkdown(block.text)"
+          ></div>
           <div v-else-if="block.type === 'tool_use'" class="tool-use-item">
             <i
               :class="[
                 'pi',
-                toolRunning && isLastToolUse(liveMessage.content, k)
-                  ? 'pi-spin pi-spinner'
-                  : 'pi-cog',
+                toolRunning && isLastToolUse(liveMessage.content, k) ? 'pi-spin pi-spinner' : 'pi-cog',
                 'tool-icon',
               ]"
             ></i>
@@ -258,9 +258,15 @@ watch(
   margin: 1.25rem 0 0.5rem 0;
 }
 
-.message-content :deep(h1) { font-size: 1.35rem; }
-.message-content :deep(h2) { font-size: 1.15rem; }
-.message-content :deep(h3) { font-size: 1.05rem; }
+.message-content :deep(h1) {
+  font-size: 1.35rem;
+}
+.message-content :deep(h2) {
+  font-size: 1.15rem;
+}
+.message-content :deep(h3) {
+  font-size: 1.05rem;
+}
 
 .message-content :deep(h1:first-child),
 .message-content :deep(h2:first-child),
@@ -439,8 +445,12 @@ watch(
   animation: typing 1.4s ease-in-out infinite;
 }
 
-.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
-.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+.typing-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.typing-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
 
 .typing-label {
   margin-left: 0.3rem;
@@ -449,8 +459,16 @@ watch(
 }
 
 @keyframes typing {
-  0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
-  30% { opacity: 1; transform: scale(1); }
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .empty-state {

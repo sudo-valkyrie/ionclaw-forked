@@ -32,18 +32,9 @@ class ContextWindow
 public:
     static int getModelLimit(const std::string &model, const nlohmann::json &modelParams = nlohmann::json(), int contextTokensCap = 0);
     static int estimateTokens(const std::vector<ionclaw::provider::Message> &messages);
-    static std::vector<ionclaw::provider::Message> trimHistory(
-        const std::vector<ionclaw::provider::Message> &messages, int maxHistory);
-    static bool needsCompaction(
-        const std::vector<ionclaw::provider::Message> &messages,
-        const std::string &model,
-        const nlohmann::json &modelParams = nlohmann::json(),
-        int contextTokensCap = 0);
-    static ContextGuardResult checkMinContext(
-        const std::vector<ionclaw::provider::Message> &messages,
-        const std::string &model,
-        const nlohmann::json &modelParams = nlohmann::json(),
-        int contextTokensCap = 0);
+    static std::vector<ionclaw::provider::Message> trimHistory(const std::vector<ionclaw::provider::Message> &messages, int maxHistory);
+    static bool needsCompaction(const std::vector<ionclaw::provider::Message> &messages, const std::string &model, const nlohmann::json &modelParams = nlohmann::json(), int contextTokensCap = 0);
+    static ContextGuardResult checkMinContext(const std::vector<ionclaw::provider::Message> &messages, const std::string &model, const nlohmann::json &modelParams = nlohmann::json(), int contextTokensCap = 0);
 
 private:
     static const std::map<std::string, int> MODEL_CONTEXT_LIMITS;

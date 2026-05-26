@@ -67,7 +67,7 @@ elseif(WIN32)
     endif()
 endif()
 
-set(_ossl_cpm_options "OPENSSL_TARGET_VERSION 3.6.1")
+set(_ossl_cpm_options "OPENSSL_TARGET_VERSION 3.6.2")
 if(_ossl_target_platform)
     list(APPEND _ossl_cpm_options "OPENSSL_TARGET_PLATFORM ${_ossl_target_platform}")
 endif()
@@ -140,9 +140,9 @@ endif()
 
 CPMAddPackage(
     NAME "Poco"
-    VERSION "1.15.0"
+    VERSION "1.15.3"
     GITHUB_REPOSITORY "pocoproject/poco"
-    GIT_TAG "poco-1.15.0-release"
+    GIT_TAG "poco-1.15.3-release"
     OPTIONS
         "BUILD_SHARED_LIBS OFF"
         "ENABLE_FOUNDATION ON"

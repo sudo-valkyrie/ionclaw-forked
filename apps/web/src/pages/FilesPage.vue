@@ -61,7 +61,7 @@ onMounted(async () => {
   window.addEventListener('resize', onResize)
   try {
     await loadFiles()
-  } catch (e) {
+  } catch {
     toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to load files', life: 3000 })
   } finally {
     loading.value = false
@@ -135,7 +135,11 @@ function openFileInBrowser(path) {
     window.open(`/${path.startsWith('/') ? path.slice(1) : path}`, '_blank', 'noopener,noreferrer')
     return
   }
-  toast.add({ severity: 'info', summary: 'Open in browser is only available for files in the Public folder.', life: 3000 })
+  toast.add({
+    severity: 'info',
+    summary: 'Open in browser is only available for files in the Public folder.',
+    life: 3000,
+  })
 }
 
 function openCreateFile(parentPath) {
@@ -159,7 +163,7 @@ function openRename() {
 async function confirmRename() {
   const name = renameForm.value.name.trim()
   if (!name || !selectedItem.value) return
-  if (/[\/\x00]/.test(name)) {
+  if (name.includes('/') || name.includes('\0')) {
     toast.add({ severity: 'error', summary: 'Error', detail: 'Invalid characters in filename', life: 3000 })
     return
   }
@@ -287,35 +291,102 @@ async function confirmDelete() {
           <i class="pi pi-arrow-left"></i>
           <span>Back</span>
         </button>
-        <h2 v-else class="header-title" @click="clearSelection" title="Click to deselect">Files</h2>
+        <h2 v-else class="header-title" title="Click to deselect" @click="clearSelection">Files</h2>
       </div>
 
       <div v-if="selectedItem" class="header-center">
         <i :class="selectedItem.type === 'directory' ? 'pi pi-folder' : 'pi pi-file'" class="selected-icon"></i>
         <span class="selected-name">{{ selectedItem.name }}</span>
-        <button class="deselect-btn" @click="clearSelection" title="Deselect">
+        <button class="deselect-btn" title="Deselect" @click="clearSelection">
           <i class="pi pi-times"></i>
         </button>
       </div>
       <div v-else class="header-center"></div>
 
       <div class="header-right">
-        <Button v-if="!currentFile" icon="pi pi-refresh" size="small" text severity="secondary" title="Refresh" @click="refreshFiles" />
+        <Button
+          v-if="!currentFile"
+          icon="pi pi-refresh"
+          size="small"
+          text
+          severity="secondary"
+          title="Refresh"
+          @click="refreshFiles"
+        />
         <template v-if="!selectedItem">
-          <Button icon="pi pi-upload" size="small" text severity="secondary" title="Upload to root" :loading="uploading" @click="triggerUpload" />
-          <Button icon="pi pi-file-plus" size="small" text severity="secondary" title="New File" @click="openCreateFile('')" />
-          <Button icon="pi pi-folder-plus" size="small" text severity="secondary" title="New Folder" @click="openCreateFolder('')" />
+          <Button
+            icon="pi pi-upload"
+            size="small"
+            text
+            severity="secondary"
+            title="Upload to root"
+            :loading="uploading"
+            @click="triggerUpload"
+          />
+          <Button
+            icon="pi pi-file-plus"
+            size="small"
+            text
+            severity="secondary"
+            title="New File"
+            @click="openCreateFile('')"
+          />
+          <Button
+            icon="pi pi-folder-plus"
+            size="small"
+            text
+            severity="secondary"
+            title="New Folder"
+            @click="openCreateFolder('')"
+          />
         </template>
         <template v-else-if="selectedItem.type === 'directory'">
-          <Button icon="pi pi-upload" size="small" text severity="secondary" title="Upload here" :loading="uploading" @click="triggerUpload" />
-          <Button icon="pi pi-file-plus" size="small" text severity="secondary" title="New File" @click="openCreateFile(selectedItem.path)" />
-          <Button icon="pi pi-folder-plus" size="small" text severity="secondary" title="New Folder" @click="openCreateFolder(selectedItem.path)" />
+          <Button
+            icon="pi pi-upload"
+            size="small"
+            text
+            severity="secondary"
+            title="Upload here"
+            :loading="uploading"
+            @click="triggerUpload"
+          />
+          <Button
+            icon="pi pi-file-plus"
+            size="small"
+            text
+            severity="secondary"
+            title="New File"
+            @click="openCreateFile(selectedItem.path)"
+          />
+          <Button
+            icon="pi pi-folder-plus"
+            size="small"
+            text
+            severity="secondary"
+            title="New Folder"
+            @click="openCreateFolder(selectedItem.path)"
+          />
           <Button icon="pi pi-pencil" size="small" text severity="secondary" title="Rename" @click="openRename" />
           <Button icon="pi pi-trash" size="small" text severity="danger" title="Delete" @click="openDeleteConfirm" />
         </template>
         <template v-else>
-          <Button v-if="isHtmlFile && isPublicPath(selectedItem.path)" icon="pi pi-external-link" size="small" text severity="secondary" title="Open in browser" @click="openFileInBrowser(selectedItem.path)" />
-          <Button icon="pi pi-download" size="small" text severity="secondary" title="Download" @click="downloadSelectedFile" />
+          <Button
+            v-if="isHtmlFile && isPublicPath(selectedItem.path)"
+            icon="pi pi-external-link"
+            size="small"
+            text
+            severity="secondary"
+            title="Open in browser"
+            @click="openFileInBrowser(selectedItem.path)"
+          />
+          <Button
+            icon="pi pi-download"
+            size="small"
+            text
+            severity="secondary"
+            title="Download"
+            @click="downloadSelectedFile"
+          />
           <Button icon="pi pi-pencil" size="small" text severity="secondary" title="Rename" @click="openRename" />
           <Button icon="pi pi-trash" size="small" text severity="danger" title="Delete" @click="openDeleteConfirm" />
         </template>
@@ -330,11 +401,7 @@ async function confirmDelete() {
       <Splitter class="files-splitter">
         <SplitterPanel :size="30" :min-size="20">
           <div class="tree-panel">
-            <FileTree
-              :files="files"
-              :selected-key="selectedItem?.path || null"
-              @select="onSelect"
-            />
+            <FileTree :files="files" :selected-key="selectedItem?.path || null" @select="onSelect" />
           </div>
         </SplitterPanel>
         <SplitterPanel :size="70" :min-size="40">
@@ -377,11 +444,7 @@ async function confirmDelete() {
 
     <div v-if="!loading" class="files-mobile">
       <div v-if="!currentFile" class="tree-panel-mobile">
-        <FileTree
-          :files="files"
-          :selected-key="selectedItem?.path || null"
-          @select="onSelect"
-        />
+        <FileTree :files="files" :selected-key="selectedItem?.path || null" @select="onSelect" />
       </div>
       <div v-else class="editor-panel-mobile">
         <MarkdownEditor
@@ -414,37 +477,80 @@ async function confirmDelete() {
       </div>
     </div>
 
-    <Dialog v-model:visible="showNewFileDialog" header="New File" :modal="true" :style="{ width: '24rem' }" :breakpoints="{ '768px': '90vw' }">
-      <DynamicForm :schema="fileSchema" v-model="newFileForm" />
+    <Dialog
+      v-model:visible="showNewFileDialog"
+      header="New File"
+      :modal="true"
+      :style="{ width: '24rem' }"
+      :breakpoints="{ '768px': '90vw' }"
+    >
+      <DynamicForm v-model="newFileForm" :schema="fileSchema" />
       <small v-if="createParentPath" class="dialog-hint">In: {{ createParentPath }}/</small>
       <template #footer>
         <Button label="Cancel" severity="secondary" text size="small" @click="showNewFileDialog = false" />
-        <Button label="Create" icon="pi pi-check" size="small" @click="confirmCreateFile" :disabled="!newFileForm.name.trim()" />
+        <Button
+          label="Create"
+          icon="pi pi-check"
+          size="small"
+          :disabled="!newFileForm.name.trim()"
+          @click="confirmCreateFile"
+        />
       </template>
     </Dialog>
 
-    <Dialog v-model:visible="showNewFolderDialog" header="New Folder" :modal="true" :style="{ width: '24rem' }" :breakpoints="{ '768px': '90vw' }">
-      <DynamicForm :schema="folderSchema" v-model="newFolderForm" />
+    <Dialog
+      v-model:visible="showNewFolderDialog"
+      header="New Folder"
+      :modal="true"
+      :style="{ width: '24rem' }"
+      :breakpoints="{ '768px': '90vw' }"
+    >
+      <DynamicForm v-model="newFolderForm" :schema="folderSchema" />
       <small v-if="createParentPath" class="dialog-hint">In: {{ createParentPath }}/</small>
       <template #footer>
         <Button label="Cancel" severity="secondary" text size="small" @click="showNewFolderDialog = false" />
-        <Button label="Create" icon="pi pi-check" size="small" @click="confirmCreateFolder" :disabled="!newFolderForm.name.trim()" />
+        <Button
+          label="Create"
+          icon="pi pi-check"
+          size="small"
+          :disabled="!newFolderForm.name.trim()"
+          @click="confirmCreateFolder"
+        />
       </template>
     </Dialog>
 
-    <Dialog v-model:visible="showRenameDialog" header="Rename" :modal="true" :style="{ width: '24rem' }" :breakpoints="{ '768px': '90vw' }">
-      <DynamicForm :schema="renameSchema" v-model="renameForm" />
+    <Dialog
+      v-model:visible="showRenameDialog"
+      header="Rename"
+      :modal="true"
+      :style="{ width: '24rem' }"
+      :breakpoints="{ '768px': '90vw' }"
+    >
+      <DynamicForm v-model="renameForm" :schema="renameSchema" />
       <template #footer>
         <Button label="Cancel" severity="secondary" text size="small" @click="showRenameDialog = false" />
-        <Button label="Rename" icon="pi pi-pencil" size="small" @click="confirmRename" :disabled="!renameForm.name.trim()" />
+        <Button
+          label="Rename"
+          icon="pi pi-pencil"
+          size="small"
+          :disabled="!renameForm.name.trim()"
+          @click="confirmRename"
+        />
       </template>
     </Dialog>
 
-    <Dialog v-model:visible="showDeleteDialog" header="Confirm Delete" :modal="true" :style="{ width: '24rem' }" :breakpoints="{ '768px': '90vw' }">
-      <div class="dialog-content" v-if="deleteTarget">
+    <Dialog
+      v-model:visible="showDeleteDialog"
+      header="Confirm Delete"
+      :modal="true"
+      :style="{ width: '24rem' }"
+      :breakpoints="{ '768px': '90vw' }"
+    >
+      <div v-if="deleteTarget" class="dialog-content">
         <p>
           Are you sure you want to delete
-          <strong>{{ deleteTarget.name }}</strong>?
+          <strong>{{ deleteTarget.name }}</strong
+          >?
         </p>
         <p v-if="deleteTarget.type === 'directory'" class="delete-warning">
           This will recursively delete the folder and all its contents.

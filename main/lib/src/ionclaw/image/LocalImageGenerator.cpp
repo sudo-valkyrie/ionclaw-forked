@@ -17,10 +17,7 @@ std::string LocalImageGenerator::providerName() const
     return "local";
 }
 
-std::string LocalImageGenerator::generate(const std::string &prompt,
-                                          const std::string &filename,
-                                          const nlohmann::json &params,
-                                          const ImageGeneratorContext &context) const
+std::string LocalImageGenerator::generate(const std::string &prompt, const std::string &filename, const nlohmann::json &params, const ImageGeneratorContext &context) const
 {
     (void)prompt;
 

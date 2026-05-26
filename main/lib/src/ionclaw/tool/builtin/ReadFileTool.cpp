@@ -16,7 +16,6 @@ namespace tool
 namespace builtin
 {
 
-// execute file read
 ToolResult ReadFileTool::execute(const nlohmann::json &params, const ToolContext &context)
 {
     auto rawPath = params.at("path").get<std::string>();
@@ -151,7 +150,6 @@ ToolResult ReadFileTool::execute(const nlohmann::json &params, const ToolContext
     return output.str();
 }
 
-// schema definition
 ToolSchema ReadFileTool::schema() const
 {
     return {

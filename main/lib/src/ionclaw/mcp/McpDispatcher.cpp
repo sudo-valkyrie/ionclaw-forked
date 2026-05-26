@@ -43,13 +43,7 @@ struct ChatStream
 
 } // namespace
 
-McpDispatcher::McpDispatcher(
-    std::shared_ptr<ionclaw::agent::Orchestrator> orchestrator,
-    std::shared_ptr<ionclaw::session::SessionManager> sessionManager,
-    std::shared_ptr<ionclaw::task::TaskManager> taskManager,
-    std::shared_ptr<ionclaw::bus::MessageBus> bus,
-    std::shared_ptr<ionclaw::bus::EventDispatcher> dispatcher,
-    std::shared_ptr<ionclaw::config::Config> config)
+McpDispatcher::McpDispatcher(std::shared_ptr<ionclaw::agent::Orchestrator> orchestrator, std::shared_ptr<ionclaw::session::SessionManager> sessionManager, std::shared_ptr<ionclaw::task::TaskManager> taskManager, std::shared_ptr<ionclaw::bus::MessageBus> bus, std::shared_ptr<ionclaw::bus::EventDispatcher> dispatcher, std::shared_ptr<ionclaw::config::Config> config)
     : orchestrator(std::move(orchestrator))
     , sessionManager(std::move(sessionManager))
     , taskManager(std::move(taskManager))
@@ -62,7 +56,7 @@ McpDispatcher::McpDispatcher(
 void McpDispatcher::enable()
 {
     enabled.store(true);
-    spdlog::info("[MCP] Channel enabled");
+    spdlog::info("[McpDispatcher] Channel enabled");
 }
 
 void McpDispatcher::disable()
@@ -73,7 +67,7 @@ void McpDispatcher::disable()
     auto count = sessions.size();
     sessions.clear();
 
-    spdlog::info("[MCP] Channel disabled ({} sessions cleared)", count);
+    spdlog::info("[McpDispatcher] Channel disabled ({} sessions cleared)", count);
 }
 
 bool McpDispatcher::isEnabled() const
@@ -91,8 +85,7 @@ bool McpDispatcher::isAllowedOrigin(const std::string &origin) const
         return true;
     }
 
-    // allow local development origins — match host exactly (not as substring)
-    // valid forms: scheme://host, scheme://host:port, scheme://host/path
+    // allow local development origins, matching the host exactly rather than as a substring
     auto isLocalHost = [](const std::string &o, const std::string &host) -> bool
     {
         auto pos = o.find(host);
@@ -100,19 +93,16 @@ bool McpDispatcher::isAllowedOrigin(const std::string &origin) const
             return false;
         auto end = pos + host.size();
         // must follow "://" and the char after the host must be end-of-string, ':', or '/'
-        return (pos >= 3 && o.substr(pos - 3, 3) == "://") &&
-               (end == o.size() || o[end] == ':' || o[end] == '/');
+        return (pos >= 3 && o.substr(pos - 3, 3) == "://") && (end == o.size() || o[end] == ':' || o[end] == '/');
     };
 
-    if (isLocalHost(origin, "localhost") ||
-        isLocalHost(origin, "127.0.0.1") ||
-        isLocalHost(origin, "[::1]"))
+    if (isLocalHost(origin, "localhost") || isLocalHost(origin, "127.0.0.1") || isLocalHost(origin, "[::1]"))
     {
         return true;
     }
 
     // non-local origin without auth: reject to prevent DNS rebinding
-    spdlog::warn("[MCP] Rejected non-local Origin without auth: {}", origin);
+    spdlog::warn("[McpDispatcher] Rejected non-local Origin without auth: {}", origin);
     return false;
 }
 
@@ -178,7 +168,7 @@ void McpDispatcher::closeSession(const std::string &id)
 {
     std::lock_guard<std::mutex> lock(sessionsMutex);
     sessions.erase(id);
-    spdlog::info("[MCP] Session closed: {}", id);
+    spdlog::info("[McpDispatcher] Session closed: {}", id);
 }
 
 void McpDispatcher::reapIdleSessionsLocked()
@@ -192,7 +182,7 @@ void McpDispatcher::reapIdleSessionsLocked()
     {
         if (it->second.lastActiveAt < cutoff)
         {
-            spdlog::info("[MCP] Reaping idle session: {}", it->first);
+            spdlog::info("[McpDispatcher] Reaping idle session: {}", it->first);
             it = sessions.erase(it);
         }
         else
@@ -202,10 +192,7 @@ void McpDispatcher::reapIdleSessionsLocked()
     }
 }
 
-nlohmann::json McpDispatcher::dispatch(
-    const std::string &sessionId,
-    const JsonRpcRequest &request,
-    SseCallback *sseCallback)
+nlohmann::json McpDispatcher::dispatch(const std::string &sessionId, const JsonRpcRequest &request, SseCallback *sseCallback)
 {
     if (request.jsonrpc != "2.0")
     {
@@ -229,12 +216,12 @@ nlohmann::json McpDispatcher::dispatch(
         auto it = sessions.find(sessionId);
         if (it == sessions.end())
         {
-            spdlog::warn("[MCP] Session not found for method '{}': {}", method, sessionId);
+            spdlog::warn("[McpDispatcher] Session not found for method '{}': {}", method, sessionId);
             return JsonRpcResponse::err(request.id, static_cast<int>(RpcErrorCode::InvalidRequest), "Session not found");
         }
         if (method != "notifications/initialized" && !it->second.initialized)
         {
-            spdlog::warn("[MCP] Session not initialized for method '{}': {}", method, sessionId);
+            spdlog::warn("[McpDispatcher] Session not initialized for method '{}': {}", method, sessionId);
             return JsonRpcResponse::err(request.id, static_cast<int>(RpcErrorCode::InvalidRequest), "Session not initialized");
         }
 
@@ -265,8 +252,7 @@ nlohmann::json McpDispatcher::handleInitialize(const std::string &sessionId, con
 {
     auto clientVersion = req.params.value("protocolVersion", std::string(""));
 
-    // accept the client version if supported, otherwise fall back to ours
-    // supports: 2024-11-05, 2025-03-26, 2025-11-25
+    // accept the client's protocol version if supported (2024-11-05, 2025-03-26, 2025-11-25), otherwise use ours
     std::string negotiatedVersion = MCP_PROTOCOL_VERSION;
     if (clientVersion == "2024-11-05" || clientVersion == "2025-03-26" || clientVersion == "2025-11-25")
     {
@@ -282,7 +268,7 @@ nlohmann::json McpDispatcher::handleInitialize(const std::string &sessionId, con
         }
     }
 
-    spdlog::info("[MCP] Session initialized: {} (protocol: {})", sessionId, negotiatedVersion);
+    spdlog::info("[McpDispatcher] Session initialized: {} (protocol: {})", sessionId, negotiatedVersion);
 
     return JsonRpcResponse::ok(req.id, {{"protocolVersion", negotiatedVersion},
                                         {"serverInfo", {{"name", "IonClaw"}, {"version", IONCLAW_VERSION_STRING}}},
@@ -299,7 +285,7 @@ nlohmann::json McpDispatcher::handleInitialized(const std::string &sessionId, co
             it->second.initialized = true;
         }
     }
-    spdlog::info("[MCP] Session ready: {}", sessionId);
+    spdlog::info("[McpDispatcher] Session ready: {}", sessionId);
     return nlohmann::json(nullptr);
 }
 
@@ -358,16 +344,12 @@ nlohmann::json McpDispatcher::handleToolsList(const JsonRpcRequest &req)
     return JsonRpcResponse::ok(req.id, {{"tools", tools}});
 }
 
-nlohmann::json McpDispatcher::handleToolsCall(
-    const std::string &sessionId,
-    const JsonRpcRequest &req,
-    SseCallback *sseCallback)
+nlohmann::json McpDispatcher::handleToolsCall(const std::string &sessionId, const JsonRpcRequest &req, SseCallback *sseCallback)
 {
     auto name = req.params.value("name", std::string(""));
     auto args = req.params.value("arguments", nlohmann::json::object());
 
-    // extract client-provided progress token for spec-compliant notifications/progress
-    // mcp spec: progressToken can be string | number — preserve original type
+    // extract the client progress token, preserving its original string|number type per the mcp spec
     nlohmann::json progressToken;
     if (req.params.contains("_meta") && req.params["_meta"].is_object())
     {
@@ -415,16 +397,12 @@ nlohmann::json McpDispatcher::handleToolsCall(
     }
 }
 
-nlohmann::json McpDispatcher::toolChat(
-    const std::string &sessionId,
-    const nlohmann::json &args,
-    nlohmann::json progressToken,
-    SseCallback *sseCallback)
+nlohmann::json McpDispatcher::toolChat(const std::string &sessionId, const nlohmann::json &args, nlohmann::json progressToken, SseCallback *sseCallback)
 {
     auto message = args.value("message", std::string(""));
     if (message.empty())
     {
-        throw std::runtime_error("message is required");
+        throw std::runtime_error("[McpDispatcher] message is required");
     }
     auto agentOverride = args.value("agent", std::string(""));
 
@@ -435,7 +413,7 @@ nlohmann::json McpDispatcher::toolChat(
         auto it = sessions.find(sessionId);
         if (it == sessions.end())
         {
-            throw std::runtime_error("Session not found");
+            throw std::runtime_error("[McpDispatcher] Session not found");
         }
         chatId = it->second.chatId;
     }
@@ -445,14 +423,12 @@ nlohmann::json McpDispatcher::toolChat(
     if (!requestedSessionId.empty())
     {
         auto colonPos = requestedSessionId.find(':');
-        chatId = (colonPos != std::string::npos)
-                     ? requestedSessionId.substr(colonPos + 1)
-                     : requestedSessionId;
+        chatId = (colonPos != std::string::npos) ? requestedSessionId.substr(colonPos + 1) : requestedSessionId;
     }
 
     auto sessionKey = std::string(MCP_CHANNEL) + ":" + chatId;
 
-    spdlog::info("[MCP] chat tool called (session: {}, streaming: {})", sessionKey, sseCallback ? "yes" : "no");
+    spdlog::info("[McpDispatcher] chat tool called (session: {}, streaming: {})", sessionKey, sseCallback ? "yes" : "no");
 
     // create task for tracking
     auto taskTitle = ionclaw::util::StringHelper::utf8SafeTruncate(message, 100);
@@ -472,64 +448,72 @@ nlohmann::json McpDispatcher::toolChat(
     auto stream = std::make_shared<ChatStream>();
     auto handlerId = "mcp_" + ionclaw::util::UniqueId::shortId();
 
-    dispatcher->addNamedHandler(handlerId,
-                                [stream, sessionKey, taskId](const std::string &eventType, const nlohmann::json &data)
-                                {
-                                    if (!data.is_object())
-                                    {
-                                        return;
-                                    }
+    // clang-format off
+    dispatcher->addNamedHandler(handlerId, [stream, sessionKey, taskId](const std::string &eventType, const nlohmann::json &data) {
+        if (!data.is_object())
+        {
+            return;
+        }
 
-                                    if (eventType == "chat:stream")
-                                    {
-                                        if (data.value("chat_id", "") == sessionKey)
-                                        {
-                                            auto chunk = data.value("content", std::string(""));
-                                            if (!chunk.empty())
-                                            {
-                                                std::lock_guard<std::mutex> lock(stream->mtx);
-                                                // skip late-arriving chunks after task completion
-                                                // to prevent writes while the consumer reads fullText
-                                                if (stream->done)
-                                                    return;
-                                                stream->chunks.push_back(chunk);
-                                                stream->fullText += chunk;
-                                                stream->cv.notify_all();
-                                            }
-                                        }
-                                    }
-                                    else if (eventType == "task:updated")
-                                    {
-                                        if (data.value("id", "") == taskId)
-                                        {
-                                            auto state = data.value("state", std::string(""));
-                                            bool isDoneState = (state == "done" || state == "DONE");
-                                            bool isErrorState = (state == "error" || state == "ERROR");
-                                            if (isDoneState || isErrorState)
-                                            {
-                                                std::lock_guard<std::mutex> lock(stream->mtx);
-                                                stream->done = true;
-                                                if (isErrorState)
-                                                {
-                                                    stream->error = true;
-                                                    stream->errorMsg = data.value("result", std::string("Task failed"));
-                                                }
-                                                else if (stream->fullText.empty())
-                                                {
-                                                    stream->fullText = data.value("result", std::string(""));
-                                                }
-                                                stream->cv.notify_all();
-                                            }
-                                        }
-                                    }
-                                });
+        if (eventType == "chat:stream")
+        {
+            if (data.value("chat_id", "") == sessionKey)
+            {
+                auto chunk = data.value("content", std::string(""));
 
-    // raii guard: ensure handler is always removed, even on exceptions.
-    // capture dispatcher by shared_ptr value (not via this) to prevent
-    // use-after-free if McpDispatcher is destroyed while toolChat is in progress.
+                if (!chunk.empty())
+                {
+                    std::lock_guard<std::mutex> lock(stream->mtx);
+
+                    // skip late chunks after completion so we never write while the consumer reads fullText
+                    if (stream->done)
+                    {
+                        return;
+                    }
+
+                    stream->chunks.push_back(chunk);
+                    stream->fullText += chunk;
+                    stream->cv.notify_all();
+                }
+            }
+        }
+        else if (eventType == "task:updated")
+        {
+            if (data.value("id", "") == taskId)
+            {
+                auto state = data.value("state", std::string(""));
+                bool isDoneState = (state == "done" || state == "DONE");
+                bool isErrorState = (state == "error" || state == "ERROR");
+
+                if (isDoneState || isErrorState)
+                {
+                    std::lock_guard<std::mutex> lock(stream->mtx);
+                    stream->done = true;
+
+                    if (isErrorState)
+                    {
+                        stream->error = true;
+                        stream->errorMsg = data.value("result", std::string("Task failed"));
+                    }
+                    else if (stream->fullText.empty())
+                    {
+                        stream->fullText = data.value("result", std::string(""));
+                    }
+
+                    stream->cv.notify_all();
+                }
+            }
+        }
+    });
+    // clang-format on
+
+    // raii guard: always remove the handler, even on exceptions.
+    // capture dispatcher by shared_ptr value (not via this) to avoid use-after-free if McpDispatcher is destroyed mid-call.
     auto dispatcherCopy = dispatcher;
-    auto handlerGuard = std::shared_ptr<void>(nullptr, [dispatcherCopy, handlerId](void *)
-                                              { dispatcherCopy->removeHandler(handlerId); });
+
+    // clang-format off
+    auto handlerGuard = std::shared_ptr<void>(nullptr, [dispatcherCopy, handlerId](void *) { dispatcherCopy->removeHandler(handlerId); });
+    // clang-format on
 
     // use client-provided progress token if available, otherwise fall back to taskId
     const auto effectiveProgressToken = progressToken.is_null() ? nlohmann::json(taskId) : std::move(progressToken);
@@ -553,7 +537,7 @@ nlohmann::json McpDispatcher::toolChat(
         inbound.metadata["language"] = lang;
     }
 
-    spdlog::info("[MCP] Publishing message to bus (session: {}, task: {})", sessionKey, taskId);
+    spdlog::info("[McpDispatcher] Publishing message to bus (session: {}, task: {})", sessionKey, taskId);
     bus->publishInbound(inbound);
 
     if (sseCallback)
@@ -568,7 +552,7 @@ nlohmann::json McpDispatcher::toolChat(
             // exit early if channel was disabled (avoids hanging until timeout)
             if (!enabled.load())
             {
-                throw std::runtime_error("MCP channel was disabled");
+                throw std::runtime_error("[McpDispatcher] MCP channel was disabled");
             }
 
             std::string chunk;
@@ -578,9 +562,10 @@ nlohmann::json McpDispatcher::toolChat(
 
             {
                 std::unique_lock<std::mutex> lock(stream->mtx);
-                stream->cv.wait_for(lock, std::chrono::seconds(POLL_INTERVAL_SECONDS),
-                                    [&stream]
-                                    { return !stream->chunks.empty() || stream->done; });
+
+                // clang-format off
+                stream->cv.wait_for(lock, std::chrono::seconds(POLL_INTERVAL_SECONDS), [&stream] { return !stream->chunks.empty() || stream->done; });
+                // clang-format on
 
                 if (!stream->chunks.empty())
                 {
@@ -614,19 +599,16 @@ nlohmann::json McpDispatcher::toolChat(
                 {
                     throw std::runtime_error(errorMsg.empty() ? "Agent returned error" : errorMsg);
                 }
-                // fullText is safe here: done==true means no more chunks will arrive,
-                // and we verified chunks is empty under the lock above
+                // fullText is safe here because done==true means no more chunks arrive and chunks was empty under the lock
                 return nlohmann::json(stream->fullText);
             }
 
             // check both idle timeout and wall-clock timeout
-            auto wallElapsed = std::chrono::duration_cast<std::chrono::seconds>(
-                                   std::chrono::steady_clock::now() - startTime)
-                                   .count();
+            auto wallElapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - startTime).count();
 
             if (idleElapsed >= CHAT_TIMEOUT_SECONDS || wallElapsed >= CHAT_TIMEOUT_SECONDS * 2)
             {
-                throw std::runtime_error("Chat timed out after " + std::to_string(wallElapsed) + " seconds");
+                throw std::runtime_error("[McpDispatcher] Chat timed out after " + std::to_string(wallElapsed) + " seconds");
             }
         }
     }
@@ -641,13 +623,14 @@ nlohmann::json McpDispatcher::toolChat(
         {
             if (!enabled.load())
             {
-                throw std::runtime_error("MCP channel was disabled");
+                throw std::runtime_error("[McpDispatcher] MCP channel was disabled");
             }
 
             std::unique_lock<std::mutex> lock(stream->mtx);
-            finished = stream->cv.wait_for(lock, std::chrono::seconds(POLL_INTERVAL_SECONDS),
-                                           [&stream]
-                                           { return stream->done; });
+
+            // clang-format off
+            finished = stream->cv.wait_for(lock, std::chrono::seconds(POLL_INTERVAL_SECONDS), [&stream] { return stream->done; });
+            // clang-format on
             if (!finished)
             {
                 elapsed += POLL_INTERVAL_SECONDS;
@@ -656,7 +639,7 @@ nlohmann::json McpDispatcher::toolChat(
 
         if (!finished)
         {
-            throw std::runtime_error("Chat timed out after " + std::to_string(CHAT_TIMEOUT_SECONDS) + " seconds");
+            throw std::runtime_error("[McpDispatcher] Chat timed out after " + std::to_string(CHAT_TIMEOUT_SECONDS) + " seconds");
         }
 
         // read final state under lock (handler may still fire until guard destructs)
@@ -683,7 +666,7 @@ nlohmann::json McpDispatcher::toolAbort(const std::string &, const nlohmann::jso
     auto rawId = args.value("session_id", std::string(""));
     if (rawId.empty())
     {
-        throw std::runtime_error("session_id is required");
+        throw std::runtime_error("[McpDispatcher] session_id is required");
     }
 
     // normalize to full session key
@@ -715,7 +698,7 @@ nlohmann::json McpDispatcher::toolGetSession(const nlohmann::json &args)
     auto rawId = args.value("session_id", std::string(""));
     if (rawId.empty())
     {
-        throw std::runtime_error("session_id is required");
+        throw std::runtime_error("[McpDispatcher] session_id is required");
     }
 
     // find session by key or base key match, prefer agent-scoped
@@ -725,8 +708,7 @@ nlohmann::json McpDispatcher::toolGetSession(const nlohmann::json &args)
 
     for (const auto &info : infos)
     {
-        if (info.key == rawId ||
-            ionclaw::session::SessionKeyUtils::extractBaseKey(info.key) == rawId)
+        if (info.key == rawId || ionclaw::session::SessionKeyUtils::extractBaseKey(info.key) == rawId)
         {
             sessionKey = info.key;
             createdAt = info.createdAt;
@@ -741,7 +723,7 @@ nlohmann::json McpDispatcher::toolGetSession(const nlohmann::json &args)
 
     if (sessionKey.empty())
     {
-        throw std::runtime_error("Session not found: " + rawId);
+        throw std::runtime_error("[McpDispatcher] Session not found: " + rawId);
     }
 
     auto messages = sessionManager->getHistory(sessionKey);
@@ -763,7 +745,7 @@ nlohmann::json McpDispatcher::toolDeleteSession(const nlohmann::json &args)
     auto rawId = args.value("session_id", std::string(""));
     if (rawId.empty())
     {
-        throw std::runtime_error("session_id is required");
+        throw std::runtime_error("[McpDispatcher] session_id is required");
     }
 
     // delete both agent-scoped and base key sessions
@@ -771,8 +753,7 @@ nlohmann::json McpDispatcher::toolDeleteSession(const nlohmann::json &args)
 
     for (const auto &info : sessionManager->listSessions())
     {
-        if (info.key == rawId || info.key == baseKey ||
-            ionclaw::session::SessionKeyUtils::extractBaseKey(info.key) == baseKey)
+        if (info.key == rawId || info.key == baseKey || ionclaw::session::SessionKeyUtils::extractBaseKey(info.key) == baseKey)
         {
             sessionManager->deleteSession(info.key);
         }
@@ -793,9 +774,7 @@ nlohmann::json McpDispatcher::toolListTasks(const nlohmann::json &args)
     auto all = taskManager->listTasks();
     auto result = nlohmann::json::array();
 
-    size_t start = (all.size() > static_cast<size_t>(limit))
-                       ? all.size() - static_cast<size_t>(limit)
-                       : 0;
+    size_t start = (all.size() > static_cast<size_t>(limit)) ? all.size() - static_cast<size_t>(limit) : 0;
 
     for (size_t i = start; i < all.size(); ++i)
     {
@@ -810,14 +789,14 @@ nlohmann::json McpDispatcher::toolGetTask(const nlohmann::json &args)
     auto taskId = args.value("task_id", std::string(""));
     if (taskId.empty())
     {
-        throw std::runtime_error("task_id is required");
+        throw std::runtime_error("[McpDispatcher] task_id is required");
     }
 
     auto task = taskManager->getTask(taskId);
 
     if (task.id.empty())
     {
-        throw std::runtime_error("Task not found: " + taskId);
+        throw std::runtime_error("[McpDispatcher] Task not found: " + taskId);
     }
 
     return task.toJson();
@@ -905,8 +884,7 @@ nlohmann::json McpDispatcher::resourceSession(const std::string &chatId)
         // match by chatId against full key, base key, or extracted chatId
         auto extractedChatId = ionclaw::session::SessionKeyUtils::extractChatId(info.key);
 
-        if (extractedChatId == chatId || info.key == chatId ||
-            ionclaw::session::SessionKeyUtils::extractBaseKey(info.key) == chatId)
+        if (extractedChatId == chatId || info.key == chatId || ionclaw::session::SessionKeyUtils::extractBaseKey(info.key) == chatId)
         {
             sessionKey = info.key;
             createdAt = info.createdAt;
@@ -921,7 +899,7 @@ nlohmann::json McpDispatcher::resourceSession(const std::string &chatId)
 
     if (sessionKey.empty())
     {
-        throw std::runtime_error("Session not found for id: " + chatId);
+        throw std::runtime_error("[McpDispatcher] Session not found for id: " + chatId);
     }
 
     auto messages = sessionManager->getHistory(sessionKey);
@@ -952,11 +930,7 @@ nlohmann::json McpDispatcher::resourceAgents()
     return {{"agents", result}};
 }
 
-nlohmann::json McpDispatcher::toolSchema(
-    const std::string &name,
-    const std::string &description,
-    const nlohmann::json &properties,
-    const std::vector<std::string> &required)
+nlohmann::json McpDispatcher::toolSchema(const std::string &name, const std::string &description, const nlohmann::json &properties, const std::vector<std::string> &required)
 {
     auto schema = nlohmann::json{
         {"type", "object"},

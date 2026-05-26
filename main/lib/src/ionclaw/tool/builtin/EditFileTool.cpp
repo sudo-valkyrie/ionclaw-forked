@@ -16,7 +16,6 @@ namespace tool
 namespace builtin
 {
 
-// find the closest matching section when old_text is not found
 std::string EditFileTool::findClosestMatch(const std::string &content, const std::string &query)
 {
     if (query.empty() || content.empty())
@@ -105,9 +104,7 @@ ToolResult EditFileTool::execute(const nlohmann::json &params, const ToolContext
 
         if (!closest.empty())
         {
-            return "Error: old_text not found in file: " + rawPath +
-                   "\n\nClosest matching section:\n---\n" + closest + "\n---\n\n" +
-                   "Make sure old_text matches the file content exactly, including whitespace and indentation.";
+            return "Error: old_text not found in file: " + rawPath + "\n\nClosest matching section:\n---\n" + closest + "\n---\n\n" + "Make sure old_text matches the file content exactly, including whitespace and indentation.";
         }
 
         return "Error: old_text not found in file: " + rawPath;
@@ -118,8 +115,7 @@ ToolResult EditFileTool::execute(const nlohmann::json &params, const ToolContext
 
     if (secondPos != std::string::npos)
     {
-        return "Error: old_text matches multiple locations in file: " + rawPath +
-               ". Provide more surrounding context to make the match unique.";
+        return "Error: old_text matches multiple locations in file: " + rawPath + ". Provide more surrounding context to make the match unique.";
     }
 
     content.replace(pos, oldText.length(), newText);

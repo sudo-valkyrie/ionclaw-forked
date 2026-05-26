@@ -44,19 +44,8 @@ public:
 
     using RedirectValidator = std::function<void(const std::string &url)>;
 
-    // standalone static method for arbitrary HTTP requests with absolute URLs
-    // proxy: optional "host:port" for outgoing requests
-    static HttpResponse request(
-        const std::string &method,
-        const std::string &url,
-        const std::map<std::string, std::string> &headers = {},
-        const std::string &body = "",
-        int timeoutSeconds = 30,
-        bool followRedirects = true,
-        RedirectValidator redirectValidator = nullptr,
-        const std::string &proxy = "");
+    static HttpResponse request(const std::string &method, const std::string &url, const std::map<std::string, std::string> &headers = {}, const std::string &body = "", int timeoutSeconds = 30, bool followRedirects = true, RedirectValidator redirectValidator = nullptr, const std::string &proxy = "");
 
-    // create an HTTP(S) session for a given URI (handles SSL context setup)
     static std::unique_ptr<Poco::Net::HTTPClientSession> createSession(const Poco::URI &uri, int timeoutSeconds, const std::string &proxy = "");
 
 private:

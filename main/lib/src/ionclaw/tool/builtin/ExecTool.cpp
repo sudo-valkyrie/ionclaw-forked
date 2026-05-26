@@ -18,7 +18,6 @@ namespace builtin
 const size_t ExecTool::MAX_OUTPUT_BYTES = 200 * 1024; // 200KB
 
 // validate command against dangerous patterns
-// thread_local ensures thread-safe regex usage (libstdc++ data race on concurrent regex_search)
 std::string ExecTool::validateCommand(const std::string &command)
 {
     // check for path traversal
@@ -80,7 +79,6 @@ std::string ExecTool::validateCommand(const std::string &command)
     return "";
 }
 
-// execute shell command
 ToolResult ExecTool::execute(const nlohmann::json &params, const ToolContext &context)
 {
     auto command = params.at("command").get<std::string>();
@@ -142,7 +140,6 @@ ToolResult ExecTool::execute(const nlohmann::json &params, const ToolContext &co
     return result.output;
 }
 
-// schema definition
 ToolSchema ExecTool::schema() const
 {
     return {
@@ -155,7 +152,6 @@ ToolSchema ExecTool::schema() const
          {"required", nlohmann::json::array({"command"})}}};
 }
 
-// supported platforms
 std::set<std::string> ExecTool::supportedPlatforms() const
 {
     return {"linux", "macos", "windows"};

@@ -23,7 +23,7 @@ public:
 
 private:
     TranscriptionProviderRegistry();
-    std::unordered_map<std::string, std::unique_ptr<TranscriptionProvider>> providers_;
+    std::unordered_map<std::string, std::unique_ptr<TranscriptionProvider>> providers;
 };
 
 } // namespace transcription

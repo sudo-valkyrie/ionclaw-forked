@@ -14,8 +14,7 @@ std::string AnnounceQueue::buildAnnounceId(const std::string &childSessionKey, c
     return "v1:" + childSessionKey + ":" + childRunId;
 }
 
-bool AnnounceQueue::enqueue(const std::string &runId, const std::string &requesterSessionKey,
-                            const std::string &message, const std::string &announceId)
+bool AnnounceQueue::enqueue(const std::string &runId, const std::string &requesterSessionKey, const std::string &message, const std::string &announceId)
 {
     std::lock_guard<std::mutex> lock(mutex);
 
@@ -57,18 +56,17 @@ std::vector<AnnounceEntry> AnnounceQueue::drain(const std::string &sessionKey)
     auto now = std::chrono::steady_clock::now();
     std::vector<AnnounceEntry> result;
 
-    entries.erase(
-        std::remove_if(entries.begin(), entries.end(),
-                       [&](const AnnounceEntry &e)
-                       {
-                           if (e.requesterSessionKey == sessionKey && e.nextRetryAt <= now)
-                           {
-                               result.push_back(e);
-                               return true;
-                           }
-                           return false;
-                       }),
-        entries.end());
+    // clang-format off
+    entries.erase(std::remove_if(entries.begin(), entries.end(), [&](const AnnounceEntry &e) {
+        if (e.requesterSessionKey == sessionKey && e.nextRetryAt <= now)
+        {
+            result.push_back(e);
+            return true;
+        }
+
+        return false;
+    }), entries.end());
+    // clang-format on
 
     return result;
 }
@@ -107,24 +105,22 @@ void AnnounceQueue::processExpired()
     auto now = std::chrono::steady_clock::now();
     auto before = entries.size();
 
-    entries.erase(
-        std::remove_if(entries.begin(), entries.end(),
-                       [&](const AnnounceEntry &e)
-                       {
-                           if (e.expiresAt <= now)
-                           {
-                               spdlog::debug("[AnnounceQueue] Announce for run {} expired", e.runId);
-                               return true;
-                           }
+    // clang-format off
+    entries.erase(std::remove_if(entries.begin(), entries.end(), [&](const AnnounceEntry &e) {
+        if (e.expiresAt <= now)
+        {
+            spdlog::debug("[AnnounceQueue] Announce for run {} expired", e.runId);
+            return true;
+        }
 
-                           if (e.retries > MAX_RETRIES)
-                           {
-                               return true;
-                           }
+        if (e.retries > MAX_RETRIES)
+        {
+            return true;
+        }
 
-                           return false;
-                       }),
-        entries.end());
+        return false;
+    }), entries.end());
+    // clang-format on
 
     auto removed = before - entries.size();
 

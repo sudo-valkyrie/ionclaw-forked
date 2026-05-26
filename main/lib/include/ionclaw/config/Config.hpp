@@ -30,8 +30,8 @@ struct AgentParams
     int maxIterations = 40;
     int maxConcurrent = 1;
     int maxHistory = 500;
-    int contextTokens = 0;                           // global context window cap (0 = no cap, use model limit)
-    std::map<std::string, int> channelHistoryLimits; // per-channel override, e.g. {"telegram": 50, "web": 200}
+    int contextTokens = 0;
+    std::map<std::string, int> channelHistoryLimits;
 };
 
 struct ProfileConfig
@@ -47,14 +47,14 @@ struct SubagentLimits
 {
     int maxDepth = 5;
     int maxChildren = 5;
-    int defaultTimeoutSeconds = 0;        // 0 = use registry default (300s)
-    std::vector<std::string> allowAgents; // empty = same agent only, "*" = all
+    int defaultTimeoutSeconds = 0;
+    std::vector<std::string> allowAgents;
 };
 
 struct ToolPolicy
 {
-    std::vector<std::string> allow; // empty = all allowed
-    std::vector<std::string> deny;  // deny takes precedence over allow
+    std::vector<std::string> allow;
+    std::vector<std::string> deny;
 };
 
 struct AgentConfig
@@ -110,11 +110,11 @@ struct TranscriptionConfig
 
 struct ToolsConfig
 {
-    bool restrictToWorkspace = true; // restrict file tools to workspace directory
+    bool restrictToWorkspace = true;
     int execTimeout = 60;
-    std::string webSearchProvider;   // provider name (e.g. brave, duckduckgo)
-    std::string webSearchCredential; // credential reference (key in credentials.*)
-    int webSearchMaxResults = 5;     // default max results for web search (1-10)
+    std::string webSearchProvider;
+    std::string webSearchCredential;
+    int webSearchMaxResults = 5;
 };
 
 struct StorageConfig
@@ -124,8 +124,8 @@ struct StorageConfig
 
 struct ChannelConfig
 {
-    bool enabled = false; // persisted: auto-start on server boot
-    bool running = false; // transient: actual runtime state
+    bool enabled = false;
+    bool running = false;
     std::string credential;
     std::vector<std::string> allowedUsers;
     nlohmann::json raw;
@@ -138,7 +138,7 @@ struct ClassifierConfig
 
 struct SessionBudgetConfig
 {
-    int64_t maxDiskBytes = 0; // 0 = unlimited
+    int64_t maxDiskBytes = 0;
     double highWaterRatio = 0.8;
 };
 
@@ -146,16 +146,16 @@ struct HeartbeatConfig
 {
     bool enabled = false;
     int interval = 1800;
-    std::string agent; // optional agent override (use a dedicated agent with cheaper model)
+    std::string agent;
 };
 
 struct MessageQueueConfig
 {
-    std::string mode = "collect";                 // default queue mode
-    std::map<std::string, std::string> byChannel; // per-channel mode override
-    int debounceMs = 1000;                        // collect debounce (ms)
-    int cap = 20;                                 // max queued messages before drop
-    std::string dropPolicy = "summarize";         // old | new | summarize
+    std::string mode = "collect";
+    std::map<std::string, std::string> byChannel;
+    int debounceMs = 1000;
+    int cap = 20;
+    std::string dropPolicy = "summarize";
 };
 
 struct MessagesConfig
@@ -166,7 +166,7 @@ struct MessagesConfig
 struct Config
 {
     std::string projectPath;
-    std::string publicDir; // resolved path to public/ directory
+    std::string publicDir;
 
     BotConfig bot;
     ServerConfig server;

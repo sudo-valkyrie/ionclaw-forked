@@ -13,28 +13,19 @@ namespace bus
 
 enum class QueueMode
 {
-    Steer,        // inject into active streaming turn between tool iterations
-    Followup,     // enqueue, process as separate turn after current completes
-    Collect,      // batch multiple messages into single prompt after debounce
-    SteerBacklog, // try steer; if not streaming, fallback to followup
-    Interrupt,    // abort current turn, clear queue, process immediately
+    Steer,
+    Followup,
+    Collect,
+    SteerBacklog,
+    Interrupt,
 };
 
 enum class QueueDropPolicy
 {
-    Old,       // drop oldest items when cap exceeded
-    New,       // reject new items when cap exceeded
-    Summarize, // drop oldest but keep summary lines
+    Old,
+    New,
+    Summarize,
 };
-
-// convert QueueMode to string for logging/serialization
-std::string queueModeToString(QueueMode mode);
-
-// normalize a string to QueueMode (accepts aliases: "queue" -> Steer, etc.)
-std::optional<QueueMode> normalizeQueueMode(const std::string &raw);
-
-// normalize a string to QueueDropPolicy
-std::optional<QueueDropPolicy> normalizeQueueDropPolicy(const std::string &raw);
 
 struct InboundMessage
 {
@@ -44,7 +35,7 @@ struct InboundMessage
     std::string content;
     std::vector<std::string> media;
     nlohmann::json metadata;
-    std::optional<QueueMode> queueMode; // nullopt = use config default
+    std::optional<QueueMode> queueMode;
 
     std::string sessionKey() const;
 };

@@ -24,7 +24,6 @@ public:
     static std::string validateParams(const nlohmann::json &params, const nlohmann::json &schema);
 
 private:
-    // truncation limits
     static constexpr int MAX_TOOL_RESULT_CHARS = 400000;
     static constexpr double TOOL_RESULT_CONTEXT_SHARE = 0.3;
 };

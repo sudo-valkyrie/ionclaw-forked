@@ -79,12 +79,12 @@ function onNodeSelect(node) {
 <template>
   <div class="file-tree-wrapper">
     <Tree
+      v-model:expanded-keys="expandedKeys"
       :value="treeNodes"
-      v-model:expandedKeys="expandedKeys"
-      :selectionKeys="selectionKeys"
+      :selection-keys="selectionKeys"
       selection-mode="single"
-      @node-select="onNodeSelect"
       class="file-tree"
+      @node-select="onNodeSelect"
     >
       <template #default="{ node }">
         <span class="tree-node-label">{{ node.label }}</span>

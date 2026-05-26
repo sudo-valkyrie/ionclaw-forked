@@ -19,13 +19,7 @@ const char *HeartbeatService::HEARTBEAT_PROMPT =
     "Follow any instructions or tasks listed there.\n"
     "If nothing needs attention, reply with just: HEARTBEAT_OK";
 
-HeartbeatService::HeartbeatService(
-    std::shared_ptr<ionclaw::bus::MessageBus> bus,
-    std::shared_ptr<ionclaw::session::SessionManager> sessionManager,
-    const std::string &workspacePath,
-    int interval,
-    bool enabled,
-    const std::string &agent)
+HeartbeatService::HeartbeatService(std::shared_ptr<ionclaw::bus::MessageBus> bus, std::shared_ptr<ionclaw::session::SessionManager> sessionManager, const std::string &workspacePath, int interval, bool enabled, const std::string &agent)
     : bus(std::move(bus))
     , sessionManager(std::move(sessionManager))
     , heartbeatFilePath(workspacePath + "/HEARTBEAT.md")
@@ -39,7 +33,7 @@ void HeartbeatService::start()
 {
     if (!enabled)
     {
-        spdlog::info("[Heartbeat] disabled");
+        spdlog::info("[HeartbeatService] disabled");
         return;
     }
 
@@ -49,7 +43,7 @@ void HeartbeatService::start()
     }
 
     loopThread = std::thread(&HeartbeatService::runLoop, this);
-    spdlog::info("[Heartbeat] started (every {}s)", interval.load());
+    spdlog::info("[HeartbeatService] started (every {}s)", interval.load());
 }
 
 void HeartbeatService::stop()
@@ -64,7 +58,7 @@ void HeartbeatService::stop()
         loopThread.join();
     }
 
-    spdlog::info("[Heartbeat] stopped");
+    spdlog::info("[HeartbeatService] stopped");
 }
 
 void HeartbeatService::restart(int newInterval, bool newEnabled, const std::string &newAgent)
@@ -103,7 +97,7 @@ void HeartbeatService::runLoop()
         }
         catch (const std::exception &e)
         {
-            spdlog::error("[Heartbeat] error: {}", e.what());
+            spdlog::error("[HeartbeatService] error: {}", e.what());
         }
     }
 }
@@ -114,7 +108,7 @@ void HeartbeatService::tick()
 
     if (isHeartbeatEmpty(content))
     {
-        spdlog::debug("[Heartbeat] no tasks");
+        spdlog::debug("[HeartbeatService] no tasks");
         return;
     }
 
@@ -128,7 +122,7 @@ void HeartbeatService::tick()
     sessionManager->clearSession(agentSessionKey);
 
     // publish inbound message to trigger agent processing
-    spdlog::info("[Heartbeat] sending tasks to agent");
+    spdlog::info("[HeartbeatService] sending tasks to agent");
 
     ionclaw::bus::InboundMessage msg;
     msg.channel = "heartbeat";

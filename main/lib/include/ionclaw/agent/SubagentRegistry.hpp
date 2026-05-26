@@ -32,8 +32,8 @@ struct SubagentRunRecord
     std::string model;
     std::string thinkingLevel;
     int depth = 0;
-    int timeoutSeconds = 0; // 0 = no timeout
-    std::string lastOutput; // latest content snippet for progress visibility
+    int timeoutSeconds = 0;
+    std::string lastOutput;
     std::string createdAt;
     std::string updatedAt;
 
@@ -54,14 +54,7 @@ public:
 
     static constexpr int DEFAULT_TIMEOUT_SECONDS = 300;
 
-    SubagentRunRecord spawn(
-        const std::string &requesterSessionKey,
-        const std::string &task,
-        const std::string &childSessionKey,
-        const std::string &model = "",
-        const std::string &thinkingLevel = "",
-        int parentDepth = 0,
-        int timeoutSeconds = DEFAULT_TIMEOUT_SECONDS);
+    SubagentRunRecord spawn(const std::string &requesterSessionKey, const std::string &task, const std::string &childSessionKey, const std::string &model = "", const std::string &thinkingLevel = "", int parentDepth = 0, int timeoutSeconds = DEFAULT_TIMEOUT_SECONDS);
 
     void updateStatus(const std::string &runId, SubagentStatus status, const std::string &outcome = "");
     void updateProgress(const std::string &runId, const std::string &output);
@@ -71,13 +64,11 @@ public:
     int getDepth(const std::string &sessionKey) const;
     bool allChildrenTerminal(const std::string &requesterSessionKey) const;
 
-    // kill a run and optionally cascade to all descendants
     int killRun(const std::string &runId, bool cascade = true);
 
     void load();
     void save();
     int recoverStaleRuns();
-    // returns run IDs of timed-out subagents (caller must handle completion)
     std::vector<std::string> checkTimeouts();
 
 private:

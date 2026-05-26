@@ -15,12 +15,10 @@ public:
     explicit LocalTranscriptionProvider(const std::string &providerName);
 
     std::string providerName() const override;
-    TranscriptionResult transcribe(const std::string &audioData,
-                                   const std::string &format,
-                                   const TranscriptionContext &context) const override;
+    TranscriptionResult transcribe(const std::string &audioData, const std::string &format, const TranscriptionContext &context) const override;
 
 private:
-    std::string providerName_;
+    std::string name;
 };
 
 } // namespace transcription

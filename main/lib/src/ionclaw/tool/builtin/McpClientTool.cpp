@@ -18,19 +18,13 @@ namespace tool
 namespace builtin
 {
 
-// thread-safe monotonic request ID generator
 int64_t McpClientTool::nextRequestId()
 {
     static std::atomic<int64_t> counter{0};
     return ++counter;
 }
 
-nlohmann::json McpClientTool::sendRpcRequest(
-    const std::string &url,
-    const nlohmann::json &request,
-    const std::string &sessionId,
-    const std::string &authToken,
-    int timeout)
+nlohmann::json McpClientTool::sendRpcRequest(const std::string &url, const nlohmann::json &request, const std::string &sessionId, const std::string &authToken, int timeout)
 {
     std::map<std::string, std::string> headers;
     headers["Content-Type"] = "application/json";
@@ -46,20 +40,16 @@ nlohmann::json McpClientTool::sendRpcRequest(
         headers["Authorization"] = "Bearer " + authToken;
     }
 
-    auto response = ionclaw::util::HttpClient::request(
-        "POST", url, headers, request.dump(), timeout, false);
+    auto response = ionclaw::util::HttpClient::request("POST", url, headers, request.dump(), timeout, false);
 
     if (response.statusCode == 404)
     {
-        throw std::runtime_error(
-            "MCP session not found (HTTP 404). The session may have expired — call initialize again to start a new session.");
+        throw std::runtime_error("[McpClientTool] MCP session not found (HTTP 404). The session may have expired, call initialize again to start a new session.");
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300)
     {
-        throw std::runtime_error(
-            "MCP server returned HTTP " + std::to_string(response.statusCode) +
-            ": " + ionclaw::util::StringHelper::utf8SafeTruncate(response.body, 500));
+        throw std::runtime_error("[McpClientTool] MCP server returned HTTP " + std::to_string(response.statusCode) + ": " + ionclaw::util::StringHelper::utf8SafeTruncate(response.body, 500));
     }
 
     // extract relevant headers (case-insensitive per HTTP spec)
@@ -86,7 +76,7 @@ nlohmann::json McpClientTool::sendRpcRequest(
 
     if (responseBody.empty())
     {
-        throw std::runtime_error("MCP server returned empty response body");
+        throw std::runtime_error("[McpClientTool] MCP server returned empty response body");
     }
 
     if (contentType.find("text/event-stream") != std::string::npos)
@@ -110,7 +100,7 @@ nlohmann::json McpClientTool::sendRpcRequest(
 
         if (lastData.empty())
         {
-            throw std::runtime_error("MCP server returned SSE response with no data");
+            throw std::runtime_error("[McpClientTool] MCP server returned SSE response with no data");
         }
 
         responseBody = lastData;
@@ -120,7 +110,7 @@ nlohmann::json McpClientTool::sendRpcRequest(
 
     if (body.is_discarded())
     {
-        throw std::runtime_error("MCP server returned invalid JSON response");
+        throw std::runtime_error("[McpClientTool] MCP server returned invalid JSON response");
     }
 
     // propagate JSON-RPC errors
@@ -128,7 +118,7 @@ nlohmann::json McpClientTool::sendRpcRequest(
     {
         auto code = body["error"].value("code", 0);
         auto message = body["error"].value("message", std::string("Unknown error"));
-        throw std::runtime_error("MCP error " + std::to_string(code) + ": " + message);
+        throw std::runtime_error("[McpClientTool] MCP error " + std::to_string(code) + ": " + message);
     }
 
     if (!responseSessionId.empty())
@@ -139,11 +129,7 @@ nlohmann::json McpClientTool::sendRpcRequest(
     return body;
 }
 
-void McpClientTool::sendDeleteRequest(
-    const std::string &url,
-    const std::string &sessionId,
-    const std::string &authToken,
-    int timeout)
+void McpClientTool::sendDeleteRequest(const std::string &url, const std::string &sessionId, const std::string &authToken, int timeout)
 {
     std::map<std::string, std::string> headers;
 
@@ -162,9 +148,7 @@ void McpClientTool::sendDeleteRequest(
     // 405 is expected if server doesn't support client-initiated termination (per MCP spec)
     if (response.statusCode != 405 && (response.statusCode < 200 || response.statusCode >= 300))
     {
-        throw std::runtime_error(
-            "MCP server returned HTTP " + std::to_string(response.statusCode) +
-            " on DELETE: " + ionclaw::util::StringHelper::utf8SafeTruncate(response.body, 500));
+        throw std::runtime_error("[McpClientTool] MCP server returned HTTP " + std::to_string(response.statusCode) + " on DELETE: " + ionclaw::util::StringHelper::utf8SafeTruncate(response.body, 500));
     }
 }
 
@@ -271,7 +255,7 @@ ToolResult McpClientTool::actionInitialize(const std::string &url, const std::st
     }
     catch (const std::exception &e)
     {
-        spdlog::warn("[McpClient] notifications/initialized failed (non-fatal): {}", e.what());
+        spdlog::warn("[McpClientTool] notifications/initialized failed (non-fatal): {}", e.what());
     }
 
     auto output = nlohmann::json{
@@ -282,11 +266,11 @@ ToolResult McpClientTool::actionInitialize(const std::string &url, const std::st
 
     if (sessionId.empty())
     {
-        spdlog::info("[McpClient] Initialized with {} (no session ID)", url);
+        spdlog::info("[McpClientTool] Initialized with {} (no session ID)", url);
     }
     else
     {
-        spdlog::info("[McpClient] Initialized session {} with {}", sessionId, url);
+        spdlog::info("[McpClientTool] Initialized session {} with {}", sessionId, url);
     }
 
     return output.dump(2);
@@ -305,13 +289,7 @@ ToolResult McpClientTool::actionListTools(const std::string &url, const std::str
     return result.dump(2);
 }
 
-ToolResult McpClientTool::actionCallTool(
-    const std::string &url,
-    const std::string &sessionId,
-    const std::string &authToken,
-    const std::string &toolName,
-    const nlohmann::json &toolArgs,
-    int timeout)
+ToolResult McpClientTool::actionCallTool(const std::string &url, const std::string &sessionId, const std::string &authToken, const std::string &toolName, const nlohmann::json &toolArgs, int timeout)
 {
     auto request = nlohmann::json{
         {"jsonrpc", "2.0"},
@@ -364,12 +342,7 @@ ToolResult McpClientTool::actionListResources(const std::string &url, const std:
     return result.dump(2);
 }
 
-ToolResult McpClientTool::actionReadResource(
-    const std::string &url,
-    const std::string &sessionId,
-    const std::string &authToken,
-    const std::string &resourceUri,
-    int timeout)
+ToolResult McpClientTool::actionReadResource(const std::string &url, const std::string &sessionId, const std::string &authToken, const std::string &resourceUri, int timeout)
 {
     auto request = nlohmann::json{
         {"jsonrpc", "2.0"},
@@ -418,11 +391,11 @@ ToolResult McpClientTool::actionClose(const std::string &url, const std::string 
 
     if (sessionId.empty())
     {
-        spdlog::info("[McpClient] Closed connection to {}", url);
+        spdlog::info("[McpClientTool] Closed connection to {}", url);
     }
     else
     {
-        spdlog::info("[McpClient] Closed session {} with {}", sessionId, url);
+        spdlog::info("[McpClientTool] Closed session {} with {}", sessionId, url);
     }
 
     return R"({"status": "closed"})";

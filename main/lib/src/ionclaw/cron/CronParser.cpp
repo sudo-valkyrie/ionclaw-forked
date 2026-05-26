@@ -19,8 +19,7 @@ CronParser::TzGuard::TzGuard(const std::string &tz, std::mutex &mtx)
     : lock(mtx)
     , overridden(false)
 {
-    // always lock to prevent concurrent TZ mutation by other threads
-    // even when tz is empty, mktime/localtime_r reads the global TZ
+    // always lock to prevent concurrent TZ mutation, since even an empty tz still reads the global TZ via mktime/localtime_r
     if (tz.empty())
     {
         return;
@@ -58,7 +57,6 @@ CronParser::TzGuard::~TzGuard()
 #endif
 }
 
-// safe integer parse with fallback
 int CronParser::safeStoi(const std::string &s, int fallback)
 {
     try
@@ -71,7 +69,6 @@ int CronParser::safeStoi(const std::string &s, int fallback)
     }
 }
 
-// parses a single cron field and returns all matching values in [min, max]
 std::vector<int> CronParser::expandField(const std::string &field, int min, int max)
 {
     std::vector<int> result;
@@ -178,8 +175,7 @@ bool CronParser::isValidTimezone(const std::string &tz)
     std::tm tm1{};
     localtime_r(&now, &tm1);
 
-    // valid IANA timezones produce short abbreviations (e.g. "EST", "PST")
-    // invalid ones echo the input string as abbreviation
+    // valid IANA timezones yield a short abbreviation (e.g. EST/PST), while invalid ones echo the input back
     std::string tzAbbrev = tm1.tm_zone ? tm1.tm_zone : "";
 
     if (tz.find('/') != std::string::npos && tzAbbrev == tz)
@@ -243,9 +239,7 @@ int64_t CronParser::nextRun(const std::string &expr, const std::string &tz)
     {
         spdlog::warn("[CronParser] invalid cron expression (need 5 fields): {}", expr);
         auto now = std::chrono::system_clock::now();
-        return std::chrono::duration_cast<std::chrono::milliseconds>(
-                   (now + std::chrono::minutes(1)).time_since_epoch())
-            .count();
+        return std::chrono::duration_cast<std::chrono::milliseconds>((now + std::chrono::minutes(1)).time_since_epoch()).count();
     }
 
     auto minutes = expandField(fields[0], 0, 59);
@@ -288,11 +282,7 @@ int64_t CronParser::nextRun(const std::string &expr, const std::string &tz)
 
         int dow = tm.tm_wday; // 0=Sunday
 
-        if (matchesField(tm.tm_mon + 1, months) &&
-            matchesField(tm.tm_mday, daysOfMonth) &&
-            matchesField(dow, daysOfWeek) &&
-            matchesField(tm.tm_hour, hours) &&
-            matchesField(tm.tm_min, minutes))
+        if (matchesField(tm.tm_mon + 1, months) && matchesField(tm.tm_mday, daysOfMonth) && matchesField(dow, daysOfWeek) && matchesField(tm.tm_hour, hours) && matchesField(tm.tm_min, minutes))
         {
             tm.tm_sec = 0;
             std::time_t result = std::mktime(&tm);
@@ -318,9 +308,7 @@ int64_t CronParser::nextRun(const std::string &expr, const std::string &tz)
     // no match found within a year, fallback to 1 hour from now
     spdlog::warn("[CronParser] no match found for cron expression: {}", expr);
     auto fallback = std::chrono::system_clock::now() + std::chrono::hours(1);
-    return std::chrono::duration_cast<std::chrono::milliseconds>(
-               fallback.time_since_epoch())
-        .count();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(fallback.time_since_epoch()).count();
 }
 
 } // namespace cron

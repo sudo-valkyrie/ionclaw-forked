@@ -13,10 +13,7 @@ namespace ionclaw
 namespace provider
 {
 
-FailoverProvider::FailoverProvider(
-    std::vector<std::shared_ptr<LlmProvider>> providers,
-    std::vector<std::string> providerNames,
-    std::vector<nlohmann::json> profileModelParams)
+FailoverProvider::FailoverProvider(std::vector<std::shared_ptr<LlmProvider>> providers, std::vector<std::string> providerNames, std::vector<nlohmann::json> profileModelParams)
     : providers(std::move(providers))
     , providerNames(std::move(providerNames))
     , profileModelParams(std::move(profileModelParams))
@@ -57,14 +54,8 @@ std::string FailoverProvider::name() const
 
 bool FailoverProvider::isFailoverableError(const std::string &errorCategory)
 {
-    // context_overflow and billing are NOT failoverable:
-    // context is too large for any provider, billing is an account issue
-    return errorCategory == "auth" ||
-           errorCategory == "rate_limit" ||
-           errorCategory == "model_not_found" ||
-           errorCategory == "timeout" ||
-           errorCategory == "transient" ||
-           errorCategory == "host_not_found";
+    // context_overflow and billing are not failoverable because the context fits no provider and billing is an account issue
+    return errorCategory == "auth" || errorCategory == "rate_limit" || errorCategory == "model_not_found" || errorCategory == "timeout" || errorCategory == "transient" || errorCategory == "host_not_found";
 }
 
 void FailoverProvider::markGood(size_t idx)
@@ -125,7 +116,6 @@ size_t FailoverProvider::findAvailableProvider() const
     return current;
 }
 
-// compute backoff delay with exponential growth and jitter
 int FailoverProvider::computeBackoffMs(int consecutiveFailures, const std::string &errorCategory)
 {
     static thread_local std::mt19937 rng(std::random_device{}());
@@ -140,9 +130,7 @@ int FailoverProvider::computeBackoffMs(int consecutiveFailures, const std::strin
 
 ChatCompletionRequest FailoverProvider::applyProfileParams(const ChatCompletionRequest &request, size_t profileIdx) const
 {
-    if (profileIdx >= profileModelParams.size() ||
-        !profileModelParams[profileIdx].is_object() ||
-        profileModelParams[profileIdx].empty())
+    if (profileIdx >= profileModelParams.size() || !profileModelParams[profileIdx].is_object() || profileModelParams[profileIdx].empty())
     {
         return request;
     }
@@ -204,7 +192,7 @@ ChatCompletionResponse FailoverProvider::chat(const ChatCompletionRequest &reque
         }
     }
 
-    throw std::runtime_error("All provider profiles exhausted after " + std::to_string(attempts) + " attempts");
+    throw std::runtime_error("[FailoverProvider] All provider profiles exhausted after " + std::to_string(attempts) + " attempts");
 }
 
 void FailoverProvider::chatStream(const ChatCompletionRequest &request, StreamCallback callback)
@@ -213,8 +201,7 @@ void FailoverProvider::chatStream(const ChatCompletionRequest &request, StreamCa
     int consecutiveFailures = 0;
     bool contentDelivered = false;
 
-    // wrap callback to track whether any content has been delivered to the consumer
-    // only set contentDelivered on actual content chunks, not metadata (usage/done)
+    // wrap the callback to flag contentDelivered only on real content chunks, not on usage/done metadata
     auto wrappedCallback = [&callback, &contentDelivered](const StreamChunk &chunk)
     {
         if (chunk.type == "content" || chunk.type == "tool_call" || chunk.type == "thinking")
@@ -243,8 +230,7 @@ void FailoverProvider::chatStream(const ChatCompletionRequest &request, StreamCa
             auto category = ProviderHelper::classifyError(e.what());
             spdlog::warn("[FailoverProvider] Provider '{}' stream failed ({}): {}", providerNames[idx], category, e.what());
 
-            // if content was already delivered to the consumer, retrying would cause
-            // duplicate partial content — propagate the error instead
+            // if content was already delivered, retrying would duplicate partial content, so propagate the error instead
             if (contentDelivered)
             {
                 spdlog::warn("[FailoverProvider] Cannot retry: content already delivered to consumer");
@@ -276,7 +262,7 @@ void FailoverProvider::chatStream(const ChatCompletionRequest &request, StreamCa
         }
     }
 
-    throw std::runtime_error("All provider profiles exhausted after " + std::to_string(attempts) + " stream attempts");
+    throw std::runtime_error("[FailoverProvider] All provider profiles exhausted after " + std::to_string(attempts) + " stream attempts");
 }
 
 } // namespace provider

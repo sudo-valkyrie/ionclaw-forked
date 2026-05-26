@@ -45,13 +45,7 @@ struct ActiveTurnHandle
 class Orchestrator
 {
 public:
-    Orchestrator(
-        std::shared_ptr<ionclaw::bus::MessageBus> bus,
-        std::shared_ptr<ionclaw::bus::EventDispatcher> dispatcher,
-        std::shared_ptr<ionclaw::session::SessionManager> sessionManager,
-        std::shared_ptr<ionclaw::task::TaskManager> taskManager,
-        std::shared_ptr<ionclaw::tool::ToolRegistry> toolRegistry,
-        const ionclaw::config::Config &config);
+    Orchestrator(std::shared_ptr<ionclaw::bus::MessageBus> bus, std::shared_ptr<ionclaw::bus::EventDispatcher> dispatcher, std::shared_ptr<ionclaw::session::SessionManager> sessionManager, std::shared_ptr<ionclaw::task::TaskManager> taskManager, std::shared_ptr<ionclaw::tool::ToolRegistry> toolRegistry, const ionclaw::config::Config &config);
 
     void start();
     void stop();
@@ -63,12 +57,10 @@ public:
     std::vector<nlohmann::json> getFlatToolDefinitions() const;
     std::vector<std::string> getAgentNames() const;
 
-    // active turn tracking (thread-safe, used by ChatRoutes for steer bypass)
     bool isSessionActive(const std::string &sessionKey) const;
     std::shared_ptr<ActiveTurnHandle> getActiveTurn(const std::string &sessionKey) const;
 
-    // session queue accessor (used by ChatRoutes for steer bypass)
-    ionclaw::bus::SessionQueue *getSessionQueue() const { return sessionQueue_.get(); }
+    ionclaw::bus::SessionQueue *getSessionQueue() const { return sessionQueue.get(); }
 
 private:
     std::shared_ptr<ionclaw::bus::MessageBus> bus;
@@ -88,14 +80,13 @@ private:
     std::shared_ptr<SubagentRegistry> subagentRegistry;
     std::shared_ptr<AnnounceQueue> announceQueue;
     std::shared_ptr<HookRunner> hookRunner;
-    std::shared_ptr<ionclaw::bus::SessionQueue> sessionQueue_;
+    std::shared_ptr<ionclaw::bus::SessionQueue> sessionQueue;
 
     std::atomic<bool> running{false};
     std::thread workerThread;
 
-    // active turn tracking
-    std::map<std::string, std::shared_ptr<ActiveTurnHandle>> activeTurns_;
-    mutable std::mutex activeTurnsMutex_;
+    std::map<std::string, std::shared_ptr<ActiveTurnHandle>> activeTurns;
+    mutable std::mutex activeTurnsMutex;
 
     void setActiveTurn(const std::string &sessionKey, std::shared_ptr<ActiveTurnHandle> handle);
     void clearActiveTurn(const std::string &sessionKey);

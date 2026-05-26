@@ -14,13 +14,7 @@ namespace ionclaw
 namespace agent
 {
 
-Orchestrator::Orchestrator(
-    std::shared_ptr<ionclaw::bus::MessageBus> bus,
-    std::shared_ptr<ionclaw::bus::EventDispatcher> dispatcher,
-    std::shared_ptr<ionclaw::session::SessionManager> sessionManager,
-    std::shared_ptr<ionclaw::task::TaskManager> taskManager,
-    std::shared_ptr<ionclaw::tool::ToolRegistry> toolRegistry,
-    const ionclaw::config::Config &config)
+Orchestrator::Orchestrator(std::shared_ptr<ionclaw::bus::MessageBus> bus, std::shared_ptr<ionclaw::bus::EventDispatcher> dispatcher, std::shared_ptr<ionclaw::session::SessionManager> sessionManager, std::shared_ptr<ionclaw::task::TaskManager> taskManager, std::shared_ptr<ionclaw::tool::ToolRegistry> toolRegistry, const ionclaw::config::Config &config)
     : bus(std::move(bus))
     , dispatcher(std::move(dispatcher))
     , sessionManager(std::move(sessionManager))
@@ -44,35 +38,35 @@ void Orchestrator::setCronService(std::shared_ptr<ionclaw::cron::CronService> cs
 
 bool Orchestrator::isSessionActive(const std::string &sessionKey) const
 {
-    std::lock_guard<std::mutex> lock(activeTurnsMutex_);
-    return activeTurns_.find(sessionKey) != activeTurns_.end();
+    std::lock_guard<std::mutex> lock(activeTurnsMutex);
+    return activeTurns.find(sessionKey) != activeTurns.end();
 }
 
 std::shared_ptr<ActiveTurnHandle> Orchestrator::getActiveTurn(const std::string &sessionKey) const
 {
-    std::lock_guard<std::mutex> lock(activeTurnsMutex_);
-    auto it = activeTurns_.find(sessionKey);
-    return (it != activeTurns_.end()) ? it->second : nullptr;
+    std::lock_guard<std::mutex> lock(activeTurnsMutex);
+    auto it = activeTurns.find(sessionKey);
+    return (it != activeTurns.end()) ? it->second : nullptr;
 }
 
 void Orchestrator::setActiveTurn(const std::string &sessionKey, std::shared_ptr<ActiveTurnHandle> handle)
 {
-    std::lock_guard<std::mutex> lock(activeTurnsMutex_);
-    activeTurns_[sessionKey] = std::move(handle);
+    std::lock_guard<std::mutex> lock(activeTurnsMutex);
+    activeTurns[sessionKey] = std::move(handle);
 }
 
 void Orchestrator::clearActiveTurn(const std::string &sessionKey)
 {
-    std::lock_guard<std::mutex> lock(activeTurnsMutex_);
-    activeTurns_.erase(sessionKey);
+    std::lock_guard<std::mutex> lock(activeTurnsMutex);
+    activeTurns.erase(sessionKey);
 }
 
 int Orchestrator::getAgentActiveTurnCount(const std::string &agentName) const
 {
-    std::lock_guard<std::mutex> lock(activeTurnsMutex_);
+    std::lock_guard<std::mutex> lock(activeTurnsMutex);
     int count = 0;
 
-    for (const auto &[key, handle] : activeTurns_)
+    for (const auto &[key, handle] : activeTurns)
     {
         if (handle && handle->agentName == agentName)
         {
@@ -83,7 +77,6 @@ int Orchestrator::getAgentActiveTurnCount(const std::string &agentName) const
     return count;
 }
 
-// initialize providers, agent loops, classifier and start worker thread
 void Orchestrator::start()
 {
     if (running.load())
@@ -104,7 +97,7 @@ void Orchestrator::start()
     announceQueue = std::make_shared<AnnounceQueue>();
 
     // create session queue for queue mode routing
-    sessionQueue_ = std::make_shared<ionclaw::bus::SessionQueue>();
+    sessionQueue = std::make_shared<ionclaw::bus::SessionQueue>();
 
     // mark sessions that were active during previous crash as aborted
     sessionManager->setAbortCutoffAll();
@@ -127,8 +120,7 @@ void Orchestrator::start()
 
             if (!agentConfig.profiles.empty())
             {
-                provider = ionclaw::provider::ProviderFactory::createFailoverFromProfiles(
-                    agentConfig.profiles, agentConfig.model, config);
+                provider = ionclaw::provider::ProviderFactory::createFailoverFromProfiles(agentConfig.profiles, agentConfig.model, config);
             }
             else
             {
@@ -168,14 +160,7 @@ void Orchestrator::start()
             contextBuilders[name] = std::move(builder);
 
             // create agent loop with dispatcher
-            auto loop = std::make_shared<AgentLoop>(
-                provider,
-                toolRegistry,
-                sessionManager,
-                taskManager,
-                dispatcher,
-                resolvedAgentConfig,
-                name);
+            auto loop = std::make_shared<AgentLoop>(provider, toolRegistry, sessionManager, taskManager, dispatcher, resolvedAgentConfig, name);
 
             // set public path for tools
             if (!config.publicDir.empty())
@@ -185,13 +170,15 @@ void Orchestrator::start()
 
             // set message sender for tools that need to send messages
             auto busRef = this->bus;
-            loop->setMessageSender([busRef](const std::string &channel, const std::string &chatId, const std::string &content)
-                                   {
+            // clang-format off
+            loop->setMessageSender([busRef](const std::string &channel, const std::string &chatId, const std::string &content) {
                 ionclaw::bus::OutboundMessage msg;
                 msg.channel = channel;
                 msg.chatId = chatId;
                 msg.content = content;
-                busRef->publishOutbound(msg); });
+                busRef->publishOutbound(msg);
+            });
+            // clang-format on
 
             // wire config, bus, cron service, and subagent registry pointers for tool context
             loop->setConfig(&config);
@@ -259,7 +246,6 @@ void Orchestrator::start()
     spdlog::info("[Orchestrator] Started with {} agent(s)", agentLoops.size());
 }
 
-// message bus consumer loop running on worker thread
 void Orchestrator::run()
 {
     spdlog::info("[Orchestrator] Worker thread started");
@@ -373,7 +359,6 @@ void Orchestrator::run()
     spdlog::info("[Orchestrator] Worker thread stopped");
 }
 
-// queue-aware message routing
 void Orchestrator::handleMessage(const ionclaw::bus::InboundMessage &message)
 {
     auto sessionKey = message.sessionKey();
@@ -402,7 +387,7 @@ void Orchestrator::handleMessage(const ionclaw::bus::InboundMessage &message)
     }
 
     // resolve effective queue mode
-    auto settings = ionclaw::bus::resolveQueueSettings(config, channel, message.queueMode);
+    auto settings = ionclaw::bus::SessionQueue::resolveQueueSettings(config, channel, message.queueMode);
 
     // check if session has an active turn
     bool isActive = isSessionActive(sessionKey);
@@ -418,24 +403,24 @@ void Orchestrator::handleMessage(const ionclaw::bus::InboundMessage &message)
     switch (settings.mode)
     {
     case ionclaw::bus::QueueMode::Steer:
-        sessionQueue_->enqueue(sessionKey, message, ionclaw::bus::QueueMode::Steer, settings);
+        sessionQueue->enqueue(sessionKey, message, ionclaw::bus::QueueMode::Steer, settings);
         spdlog::info("[Orchestrator] Steer message queued for active session {}", sessionKey);
         break;
 
     case ionclaw::bus::QueueMode::SteerBacklog:
         // try steer; also enqueue as followup backup
-        sessionQueue_->enqueue(sessionKey, message, ionclaw::bus::QueueMode::Steer, settings);
-        sessionQueue_->enqueue(sessionKey, message, ionclaw::bus::QueueMode::Followup, settings);
+        sessionQueue->enqueue(sessionKey, message, ionclaw::bus::QueueMode::Steer, settings);
+        sessionQueue->enqueue(sessionKey, message, ionclaw::bus::QueueMode::Followup, settings);
         spdlog::info("[Orchestrator] SteerBacklog: steer + followup queued for {}", sessionKey);
         break;
 
     case ionclaw::bus::QueueMode::Followup:
-        sessionQueue_->enqueue(sessionKey, message, ionclaw::bus::QueueMode::Followup, settings);
+        sessionQueue->enqueue(sessionKey, message, ionclaw::bus::QueueMode::Followup, settings);
         spdlog::info("[Orchestrator] Followup queued for active session {}", sessionKey);
         break;
 
     case ionclaw::bus::QueueMode::Collect:
-        sessionQueue_->enqueue(sessionKey, message, ionclaw::bus::QueueMode::Collect, settings);
+        sessionQueue->enqueue(sessionKey, message, ionclaw::bus::QueueMode::Collect, settings);
         spdlog::info("[Orchestrator] Collect message queued for active session {}", sessionKey);
         break;
 
@@ -445,7 +430,6 @@ void Orchestrator::handleMessage(const ionclaw::bus::InboundMessage &message)
     }
 }
 
-// process a message directly (no queueing) — the main agent turn
 void Orchestrator::processMessageDirect(const ionclaw::bus::InboundMessage &message)
 {
     auto baseKey = message.sessionKey();
@@ -528,9 +512,7 @@ void Orchestrator::processMessageDirect(const ionclaw::bus::InboundMessage &mess
     // get session history for classifier context from agent-scoped session
     std::vector<ionclaw::session::SessionMessage> history;
     {
-        auto historyAgent = !previousAffinity.empty() ? previousAffinity
-                            : !targetAgent.empty()    ? targetAgent
-                                                      : (agentLoops.count("main") ? "main" : agentLoops.begin()->first);
+        auto historyAgent = !previousAffinity.empty() ? previousAffinity : !targetAgent.empty() ? targetAgent : (agentLoops.count("main") ? "main" : agentLoops.begin()->first);
         auto historyKey = ionclaw::session::SessionKeyUtils::build(historyAgent, channel, message.chatId);
         history = sessionManager->getHistory(historyKey, 20);
     }
@@ -568,8 +550,7 @@ void Orchestrator::processMessageDirect(const ionclaw::bus::InboundMessage &mess
     if (agentLoops.size() > 1 && !previousAffinity.empty() && previousAffinity != targetAgent)
     {
         auto previousSessionKey = ionclaw::session::SessionKeyUtils::build(previousAffinity, channel, message.chatId);
-        spdlog::info("[Orchestrator] Agent changed from '{}' to '{}', clearing previous session ({})",
-                     previousAffinity, targetAgent, previousSessionKey);
+        spdlog::info("[Orchestrator] Agent changed from '{}' to '{}', clearing previous session ({})", previousAffinity, targetAgent, previousSessionKey);
         sessionManager->clearSession(previousSessionKey);
         dispatcher->broadcast("sessions:updated", nlohmann::json::object());
     }
@@ -595,10 +576,8 @@ void Orchestrator::processMessageDirect(const ionclaw::bus::InboundMessage &mess
 
     if (activeTurns >= maxConcurrent)
     {
-        spdlog::warn("[Orchestrator] Agent '{}' at concurrency limit ({}/{}), queueing as followup",
-                     targetAgent, activeTurns, maxConcurrent);
-        sessionQueue_->enqueue(baseKey, message, ionclaw::bus::QueueMode::Followup,
-                               ionclaw::bus::resolveQueueSettings(config, channel));
+        spdlog::warn("[Orchestrator] Agent '{}' at concurrency limit ({}/{}), queueing as followup", targetAgent, activeTurns, maxConcurrent);
+        sessionQueue->enqueue(baseKey, message, ionclaw::bus::QueueMode::Followup, ionclaw::bus::SessionQueue::resolveQueueSettings(config, channel));
         return;
     }
 
@@ -618,7 +597,7 @@ void Orchestrator::processMessageDirect(const ionclaw::bus::InboundMessage &mess
     auto &loop = agentLoops[targetAgent];
 
     // wire session queue and turn handle into agent loop for steer/abort
-    loop->setSessionQueue(sessionQueue_.get());
+    loop->setSessionQueue(sessionQueue.get());
     loop->setActiveTurnHandle(turnHandle.get());
 
     // fire AgentTurnStart and BeforePromptBuild hooks
@@ -728,8 +707,7 @@ void Orchestrator::processMessageDirect(const ionclaw::bus::InboundMessage &mess
 
         // process message with event broadcasting
         // clang-format off
-        loop->processMessage(effectiveMessage, systemPrompt, [this, baseKey, targetAgent, subagentRunId](const AgentEvent &event)
-        {
+        loop->processMessage(effectiveMessage, systemPrompt, [this, baseKey, targetAgent, subagentRunId](const AgentEvent &event) {
             try
             {
                 nlohmann::json eventData = event.data;
@@ -743,8 +721,7 @@ void Orchestrator::processMessageDirect(const ionclaw::bus::InboundMessage &mess
                 dispatcher->broadcast(event.type, eventData);
 
                 // update subagent progress with streamed content
-                if (!subagentRunId.empty() && subagentRegistry && event.type == "chat:stream"
-                    && event.data.contains("content") && event.data["content"].is_string())
+                if (!subagentRunId.empty() && subagentRegistry && event.type == "chat:stream" && event.data.contains("content") && event.data["content"].is_string())
                 {
                     subagentRegistry->updateProgress(subagentRunId, event.data["content"].get<std::string>());
                 }
@@ -929,8 +906,7 @@ void Orchestrator::processMessageDirect(const ionclaw::bus::InboundMessage &mess
 
     // if this parent turn spawned children that are still running,
     // keep the task in Doing so the UI shows the agent is still working
-    if (subagentRunId.empty() && subagentRegistry && !turnHandle->taskId.empty() &&
-        !subagentRegistry->allChildrenTerminal(sessionKey))
+    if (subagentRunId.empty() && subagentRegistry && !turnHandle->taskId.empty() && !subagentRegistry->allChildrenTerminal(sessionKey))
     {
         // re-mark task as Doing (processMessage already set it to Done)
         try
@@ -948,15 +924,13 @@ void Orchestrator::processMessageDirect(const ionclaw::bus::InboundMessage &mess
         // keep typing indicator alive
         dispatcher->broadcast("chat:typing", {{"chat_id", baseKey}, {"agent_name", targetAgent}});
 
-        spdlog::info("[Orchestrator] Parent task {} kept in Doing while {} children run (session: {})",
-                     turnHandle->taskId, subagentRegistry->getActiveChildCount(sessionKey), sessionKey);
+        spdlog::info("[Orchestrator] Parent task {} kept in Doing while {} children run (session: {})", turnHandle->taskId, subagentRegistry->getActiveChildCount(sessionKey), sessionKey);
     }
 
     // drain followup/collect queue after turn completes (base key)
     drainSessionQueue(baseKey);
 }
 
-// handle interrupt: abort current turn, clear queue, re-publish message
 void Orchestrator::handleInterrupt(const std::string &sessionKey, const ionclaw::bus::InboundMessage &message)
 {
     spdlog::info("[Orchestrator] Interrupt for session {}", sessionKey);
@@ -970,7 +944,7 @@ void Orchestrator::handleInterrupt(const std::string &sessionKey, const ionclaw:
     }
 
     // clear all pending queue items for this session
-    auto cleared = sessionQueue_->clear(sessionKey);
+    auto cleared = sessionQueue->clear(sessionKey);
 
     if (cleared > 0)
     {
@@ -985,14 +959,13 @@ void Orchestrator::handleInterrupt(const std::string &sessionKey, const ionclaw:
     bus->publishInbound(normalMsg);
 }
 
-// drain followup/collect queue after a turn completes
 void Orchestrator::drainSessionQueue(const std::string &sessionKey)
 {
     // move leftover steer items (subagent results not consumed between iterations)
     // to announce queue so they are delivered on the next turn
     if (announceQueue)
     {
-        auto steerLeftovers = sessionQueue_->drainSteer(sessionKey);
+        auto steerLeftovers = sessionQueue->drainSteer(sessionKey);
         for (const auto &item : steerLeftovers)
         {
             spdlog::info("[Orchestrator] Moving unconsumed steer item to announce queue (session: {})", sessionKey);
@@ -1000,21 +973,21 @@ void Orchestrator::drainSessionQueue(const std::string &sessionKey)
         }
     }
 
-    while (sessionQueue_->hasPending(sessionKey))
+    while (sessionQueue->hasPending(sessionKey))
     {
         // check for interrupt before draining
-        if (sessionQueue_->hasInterrupt(sessionKey))
+        if (sessionQueue->hasInterrupt(sessionKey))
         {
             spdlog::debug("[Orchestrator] Interrupt detected in queue, stopping drain for {}", sessionKey);
             break;
         }
 
         // check dropped messages
-        auto dropped = sessionQueue_->droppedCount(sessionKey);
-        auto summaryLines = sessionQueue_->droppedSummaryLines(sessionKey);
-        sessionQueue_->resetDroppedState(sessionKey);
+        auto dropped = sessionQueue->droppedCount(sessionKey);
+        auto summaryLines = sessionQueue->droppedSummaryLines(sessionKey);
+        sessionQueue->resetDroppedState(sessionKey);
 
-        auto items = sessionQueue_->drainFollowup(sessionKey);
+        auto items = sessionQueue->drainFollowup(sessionKey);
 
         if (items.empty())
         {
@@ -1027,13 +1000,12 @@ void Orchestrator::drainSessionQueue(const std::string &sessionKey)
         if (mode == ionclaw::bus::QueueMode::Collect)
         {
             // wait for debounce
-            auto settings = ionclaw::bus::resolveQueueSettings(
-                config, items.front().message.channel);
+            auto settings = ionclaw::bus::SessionQueue::resolveQueueSettings(config, items.front().message.channel);
 
-            sessionQueue_->waitDebounce(sessionKey, settings.debounceMs);
+            sessionQueue->waitDebounce(sessionKey, settings.debounceMs);
 
             // re-drain after debounce (more items may have arrived)
-            auto moreItems = sessionQueue_->drainFollowup(sessionKey);
+            auto moreItems = sessionQueue->drainFollowup(sessionKey);
             items.insert(items.end(), moreItems.begin(), moreItems.end());
 
             if (items.empty())
@@ -1047,8 +1019,7 @@ void Orchestrator::drainSessionQueue(const std::string &sessionKey)
             // append overflow summary if items were dropped
             if (dropped > 0)
             {
-                collectPrompt = ionclaw::bus::SessionQueue::buildSummaryPrompt(dropped, summaryLines) +
-                                "\n\n" + collectPrompt;
+                collectPrompt = ionclaw::bus::SessionQueue::buildSummaryPrompt(dropped, summaryLines) + "\n\n" + collectPrompt;
             }
 
             // create synthetic InboundMessage with the collected content
@@ -1066,7 +1037,7 @@ void Orchestrator::drainSessionQueue(const std::string &sessionKey)
             // followup: process each item as a separate turn
             for (auto &item : items)
             {
-                if (sessionQueue_->hasInterrupt(sessionKey))
+                if (sessionQueue->hasInterrupt(sessionKey))
                 {
                     break;
                 }
@@ -1100,8 +1071,7 @@ void Orchestrator::handleSubagentCompletion(const std::string &runId, const std:
 
         if (elapsed < GRACE_PERIOD_SECONDS)
         {
-            spdlog::warn("[Orchestrator] Subagent {} errored within {}s of creation (grace period: {}s), possible startup failure",
-                         runId, elapsed, GRACE_PERIOD_SECONDS);
+            spdlog::warn("[Orchestrator] Subagent {} errored within {}s of creation (grace period: {}s), possible startup failure", runId, elapsed, GRACE_PERIOD_SECONDS);
         }
     }
 
@@ -1110,15 +1080,14 @@ void Orchestrator::handleSubagentCompletion(const std::string &runId, const std:
 
     {
         std::string statusStr = errored ? "FAILED" : "OK";
-        auto announceMsg = "[" + statusStr + "] " + record.task + "\n" +
-                           (outcome.empty() ? std::string("(no output)") : outcome);
+        auto announceMsg = "[" + statusStr + "] " + record.task + "\n" + (outcome.empty() ? std::string("(no output)") : outcome);
 
         // use base key for queue and active-turn coordination
         auto requesterBaseKey = ionclaw::session::SessionKeyUtils::extractBaseKey(record.requesterSessionKey);
 
         // try steer: inject result into parent's active turn (between iterations)
         // fallback to announce queue if parent is not active (will be prepended to next turn)
-        if (isSessionActive(requesterBaseKey) && sessionQueue_)
+        if (isSessionActive(requesterBaseKey) && sessionQueue)
         {
             ionclaw::bus::InboundMessage steerMsg;
             steerMsg.content = announceMsg;
@@ -1126,8 +1095,7 @@ void Orchestrator::handleSubagentCompletion(const std::string &runId, const std:
 
             auto settings = ionclaw::bus::QueueSettings{};
             settings.mode = ionclaw::bus::QueueMode::Steer;
-            sessionQueue_->enqueue(requesterBaseKey, steerMsg,
-                                   ionclaw::bus::QueueMode::Steer, settings);
+            sessionQueue->enqueue(requesterBaseKey, steerMsg, ionclaw::bus::QueueMode::Steer, settings);
 
             spdlog::info("[Orchestrator] Steered subagent result into active turn (session: {})", requesterBaseKey);
         }
@@ -1178,8 +1146,7 @@ void Orchestrator::handleSubagentCompletion(const std::string &runId, const std:
         std::string parentTaskId;
         auto parentSession = sessionManager->getOrCreate(record.requesterSessionKey);
 
-        if (parentSession.liveState.contains("pendingParentTaskId") &&
-            parentSession.liveState["pendingParentTaskId"].is_string())
+        if (parentSession.liveState.contains("pendingParentTaskId") && parentSession.liveState["pendingParentTaskId"].is_string())
         {
             parentTaskId = parentSession.liveState["pendingParentTaskId"].get<std::string>();
             sessionManager->updateLiveStateField(record.requesterSessionKey, "pendingParentTaskId", nullptr);
@@ -1208,7 +1175,6 @@ void Orchestrator::handleSubagentCompletion(const std::string &runId, const std:
     }
 }
 
-// stop all agent loops and join worker thread
 void Orchestrator::stop()
 {
     if (!running.load())
@@ -1241,7 +1207,7 @@ void Orchestrator::stop()
     hookRunner.reset();
     subagentRegistry.reset();
     announceQueue.reset();
-    sessionQueue_.reset();
+    sessionQueue.reset();
 
     spdlog::info("[Orchestrator] Stopped");
 }

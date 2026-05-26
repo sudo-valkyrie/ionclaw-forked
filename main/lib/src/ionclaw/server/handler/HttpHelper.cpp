@@ -11,7 +11,6 @@ namespace server
 namespace handler
 {
 
-// maps file extension to mime content type
 std::string HttpHelper::contentTypeForExtension(const std::string &ext)
 {
     static const std::unordered_map<std::string, std::string> mimeTypes = {
@@ -35,7 +34,6 @@ std::string HttpHelper::contentTypeForExtension(const std::string &ext)
     return it != mimeTypes.end() ? it->second : "application/octet-stream";
 }
 
-// adds permissive cors headers for cross-origin requests
 void HttpHelper::addCorsHeaders(Poco::Net::HTTPServerResponse &resp)
 {
     resp.set("Access-Control-Allow-Origin", "*");
@@ -44,7 +42,6 @@ void HttpHelper::addCorsHeaders(Poco::Net::HTTPServerResponse &resp)
     resp.set("Access-Control-Max-Age", "86400");
 }
 
-// extracts the path segment after a given prefix, with URL decoding
 std::string HttpHelper::extractPathParam(const std::string &path, const std::string &prefix)
 {
     if (path.size() > prefix.size() && path.substr(0, prefix.size()) == prefix)

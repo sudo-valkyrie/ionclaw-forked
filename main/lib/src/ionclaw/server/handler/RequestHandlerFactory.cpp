@@ -17,13 +17,7 @@ namespace server
 namespace handler
 {
 
-RequestHandlerFactory::RequestHandlerFactory(
-    std::shared_ptr<Routes> routes,
-    std::shared_ptr<Auth> auth,
-    std::shared_ptr<WebSocketManager> wsManager,
-    std::shared_ptr<ionclaw::mcp::McpDispatcher> mcpDispatcher,
-    const std::string &webDir,
-    const std::string &publicDir)
+RequestHandlerFactory::RequestHandlerFactory(std::shared_ptr<Routes> routes, std::shared_ptr<Auth> auth, std::shared_ptr<WebSocketManager> wsManager, std::shared_ptr<ionclaw::mcp::McpDispatcher> mcpDispatcher, const std::string &webDir, const std::string &publicDir)
     : routes(routes)
     , auth(auth)
     , wsManager(wsManager)
@@ -34,7 +28,6 @@ RequestHandlerFactory::RequestHandlerFactory(
 }
 
 // poco framework requires raw pointer ownership transfer from createRequestHandler;
-// the server takes ownership and deletes the handler after use
 Poco::Net::HTTPRequestHandler *RequestHandlerFactory::createRequestHandler(const Poco::Net::HTTPServerRequest &req)
 {
     auto path = Poco::URI(req.getURI()).getPath();

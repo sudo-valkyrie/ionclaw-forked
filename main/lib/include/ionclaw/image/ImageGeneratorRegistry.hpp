@@ -23,7 +23,7 @@ public:
 
 private:
     ImageGeneratorRegistry();
-    std::unordered_map<std::string, std::unique_ptr<ImageGenerator>> generators_;
+    std::unordered_map<std::string, std::unique_ptr<ImageGenerator>> generators;
 };
 
 } // namespace image
