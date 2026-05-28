@@ -138,6 +138,8 @@ if(IONCLAW_LLAMA_CPP)
             "LLAMA_BUILD_TOOLS OFF"
             "LLAMA_BUILD_SERVER OFF"
             "LLAMA_OPENSSL OFF"
+            # build for the architecture baseline instead of -mcpu=native, which keeps the binary portable and avoids host cpus the compiler may not know
+            "GGML_NATIVE OFF"
     )
 
     if(NOT llama.cpp_ADDED)

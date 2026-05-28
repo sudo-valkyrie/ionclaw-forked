@@ -36,7 +36,7 @@ cmake -B build -DIONCLAW_LLAMA_CPP=OFF
 
 > The first build fetches and compiles llama.cpp and ggml, so it takes considerably longer than a normal build. The dependency is pinned to a specific upstream commit for reproducible builds.
 
-Acceleration follows the llama.cpp platform defaults — Metal and Accelerate on Apple Silicon, CPU elsewhere — and the required frameworks are linked transitively through the `llama` target. No GPU configuration is needed at build time.
+GPU acceleration follows the llama.cpp platform defaults — Metal and Accelerate on Apple Silicon — and the required frameworks are linked transitively through the `llama` target, so no GPU configuration is needed at build time. CPU code is compiled for the architecture baseline (`GGML_NATIVE OFF`) rather than `-mcpu=native`, which keeps the binary portable across machines.
 
 ---
 
