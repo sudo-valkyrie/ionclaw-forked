@@ -72,3 +72,4 @@ apps/flutter/plugin/ios/ionclaw.xcframework
 # apple app (xcodegen generated project)
 apps/apple/IonClaw.xcodeproj
 apps/apple/*.xcworkspace
+apps/apple/build

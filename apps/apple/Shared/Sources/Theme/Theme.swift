@@ -12,6 +12,9 @@ enum Theme {
     static let card = Color(hex: 0xFFFFFF)
     static let cardBorder = Color(hex: 0xE5E7EB)
     static let muted = Color(hex: 0x9E9E9E)
+    // fixed text colors so the light card stays readable regardless of system dark mode
+    static let label = Color(hex: 0x1C1C1E)
+    static let secondaryLabel = Color(hex: 0x6B7280)
 }
 
 extension Color {

@@ -1,10 +1,11 @@
 import SwiftUI
 import WebKit
 
-// embedded web panel served by the local server, mirroring the flutter browser screen
+// embedded web panel served by the local server
 struct PanelView: View {
     let url: URL?
 
+    @Environment(\.dismiss) private var dismiss
     @State private var isLoading = true
     @State private var reloadID = UUID()
 
@@ -25,26 +26,52 @@ struct PanelView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Image("HeaderLogo")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(height: 34)
-            }
-
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    isLoading = true
-                    reloadID = UUID()
-                } label: {
-                    Image(systemName: "house")
-                }
-            }
-        }
+        .navigationBarBackButtonHidden(true)
+        .toolbar { panelToolbar }
         .toolbarBackground(Theme.header, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
+    }
+
+    // ios 26 wraps bar buttons in a glass capsule, so opt those items out of the shared background.
+    // earlier ios versions have no such background, so the plain items are already correct there.
+    @ToolbarContentBuilder
+    private var panelToolbar: some ToolbarContent {
+        if #available(iOS 26.0, *) {
+            ToolbarItem(placement: .navigationBarLeading) { backButton }
+                .sharedBackgroundVisibility(.hidden)
+            ToolbarItem(placement: .principal) { logo }
+            ToolbarItem(placement: .navigationBarTrailing) { homeButton }
+                .sharedBackgroundVisibility(.hidden)
+        } else {
+            ToolbarItem(placement: .navigationBarLeading) { backButton }
+            ToolbarItem(placement: .principal) { logo }
+            ToolbarItem(placement: .navigationBarTrailing) { homeButton }
+        }
+    }
+
+    private var backButton: some View {
+        Button {
+            dismiss()
+        } label: {
+            Image(systemName: "chevron.backward")
+        }
+    }
+
+    private var logo: some View {
+        Image("HeaderLogo")
+            .resizable()
+            .scaledToFit()
+            .frame(height: 30)
+    }
+
+    private var homeButton: some View {
+        Button {
+            isLoading = true
+            reloadID = UUID()
+        } label: {
+            Image(systemName: "house")
+        }
     }
 }
 

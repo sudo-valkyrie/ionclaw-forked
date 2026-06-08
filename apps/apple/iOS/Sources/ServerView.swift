@@ -40,6 +40,7 @@ struct ServerView: View {
             }
             .background(Theme.screen)
             .scrollDismissesKeyboard(.interactively)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Image("HeaderLogo")
@@ -139,11 +140,12 @@ struct ServerView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.secondaryLabel)
 
             TextField(placeholder, text: text)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
+                .foregroundStyle(Theme.label)
                 .padding(12)
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.cardBorder, lineWidth: 1))
         }
@@ -166,7 +168,8 @@ struct ServerView: View {
     }
 
     private var panelURL: URL? {
-        URL(string: "http://127.0.0.1:\(server.port)/app/")
+        let host = config.host == "0.0.0.0" ? "localhost" : config.host
+        return URL(string: "http://\(host):\(server.port)/app/")
     }
 
     private var portText: Binding<String> {
@@ -196,6 +199,7 @@ private struct SectionCard<Content: View>: View {
 
                 Text(title)
                     .font(.headline)
+                    .foregroundStyle(Theme.label)
             }
 
             content
