@@ -56,38 +56,12 @@ jobs:
       - name: Verify library
         run: file build/android-arm64-v8a/lib/libionclaw.so
 
-      - name: Build armeabi-v7a
-        run: |
-          cmake -B build/android-armeabi-v7a -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DIONCLAW_BUILD_SHARED=ON \
-            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
-            -DANDROID_ABI=armeabi-v7a -DANDROID_PLATFORM=android-24 -DANDROID_STL=c++_static
-          cmake --build build/android-armeabi-v7a --config ${{ env.BUILD_TYPE }} -j$(nproc)
-
-      - name: Build x86_64
-        run: |
-          cmake -B build/android-x86_64 -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DIONCLAW_BUILD_SHARED=ON \
-            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
-            -DANDROID_ABI=x86_64 -DANDROID_PLATFORM=android-24 -DANDROID_STL=c++_static
-          cmake --build build/android-x86_64 --config ${{ env.BUILD_TYPE }} -j$(nproc)
-
-      - name: Build x86
-        run: |
-          cmake -B build/android-x86 -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DIONCLAW_BUILD_SHARED=ON \
-            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
-            -DANDROID_ABI=x86 -DANDROID_PLATFORM=android-24 -DANDROID_STL=c++_static
-          cmake --build build/android-x86 --config ${{ env.BUILD_TYPE }} -j$(nproc)
-
       - name: Copy .so to aar project
         run: |
-          for abi in arm64-v8a armeabi-v7a x86_64 x86; do
-            mkdir -p apps/android/library/src/main/jniLibs/$abi
-            cp build/android-$abi/lib/libionclaw.so apps/android/library/src/main/jniLibs/$abi/
-          done
-          # also copy libomp (OpenMP runtime)
-          find $ANDROID_NDK -name "libomp.so" | while read f; do
-            abi=$(basename $(dirname $f))
-            [ -d apps/android/library/src/main/jniLibs/$abi ] && cp "$f" apps/android/library/src/main/jniLibs/$abi/
-          done
+          mkdir -p apps/android/library/src/main/jniLibs/arm64-v8a
+          cp build/android-arm64-v8a/lib/libionclaw.so apps/android/library/src/main/jniLibs/arm64-v8a/
+          # also copy libomp for OpenMP support
+          find $ANDROID_NDK -path "*/arm64-v8a/libomp.so" -exec cp {} apps/android/library/src/main/jniLibs/arm64-v8a/ \;
 
       - name: Set up Java
         uses: actions/setup-java@v4
