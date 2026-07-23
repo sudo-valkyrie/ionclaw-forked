@@ -31,6 +31,8 @@
 #include "ionclaw/tool/builtin/WebFetchTool.hpp"
 #include "ionclaw/tool/builtin/WebSearchTool.hpp"
 #include "ionclaw/tool/builtin/WriteFileTool.hpp"
+#include "ionclaw/tool/builtin/JsonToTableTool.hpp"
+#include "ionclaw/tool/builtin/QrCodeTool.hpp"
 
 namespace ionclaw
 {
@@ -106,6 +108,14 @@ void ToolRegistry::registerBuiltinTools()
     registerTool(std::make_shared<builtin::SubagentsTool>());
     registerTool(std::make_shared<builtin::CronTool>());
     registerTool(std::make_shared<builtin::BrowserTool>());
+
+    //newly added tool
+    registerTool(std::make_shared<builtin::JsonToTableTool>());
+
+    // qrcode generation tool (desktop only, requires libqrencode)
+#ifdef IONCLAW_HAS_QRENCODE
+    registerTool(std::make_shared<builtin::QrCodeTool>());
+#endif
 
     spdlog::info("[ToolRegistry] Registered {} built-in tools", tools.size());
 }

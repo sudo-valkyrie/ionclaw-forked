@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <atomic>
 #include <memory>
+#include <regex>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -690,7 +691,15 @@ LlamaProvider::GenerationResult LlamaProvider::generate(const ChatCompletionRequ
     // an interrupted generation only parses partially, so fall back when the strict parse fails
     try
     {
-        parsed = common_chat_parse(generated, !completed, parserParams);
+        // Qwen models sometimes wrap tool calls in markdown json code blocks.
+        // Strip the markdown fence so common_chat_parse can read the raw JSON.
+        // Use [\\s\\S] instead of . because . does not match newlines in std::regex.
+        auto cleaned = generated;
+        {
+            const std::regex mdJson(R"raw(```(?:json)?\s*(\{[\s\S]*?\}|\[[\s\S]*?\])\s*```)raw");
+            cleaned = std::regex_replace(cleaned, mdJson, "$1");
+        }
+        parsed = common_chat_parse(cleaned, !completed, parserParams);
     }
     catch (const std::exception &)
     {

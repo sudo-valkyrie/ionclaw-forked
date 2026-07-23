@@ -90,17 +90,6 @@ CPMAddPackage(
     DOWNLOAD_ONLY YES
 )
 
-# qrencode (QR code generation library)
-CPMAddPackage(
-    NAME "libqrencode"
-    GITHUB_REPOSITORY "fukuchi/libqrencode"
-    GIT_TAG "v4.1.1"
-    OPTIONS
-        "WITH_TOOLS OFF"
-        "WITH_TESTS OFF"
-        "BUILD_TESTING OFF"
-)
-
 # jwt token (header-only, download only to avoid nlohmann json conflict)
 CPMAddPackage(
     NAME "jwt-cpp"
@@ -132,25 +121,6 @@ if(stb_ADDED)
     if(IONCLAW_BUILD_SHARED)
         target_include_directories(ionclaw-shared PRIVATE ${stb_SOURCE_DIR})
         target_compile_definitions(ionclaw-shared PUBLIC IONCLAW_HAS_STB_IMAGE_WRITE)
-    endif()
-endif()
-
-# link qrencode to ionclaw targets
-if(libqrencode_ADDED)
-    # libqrencode does not expose its include dir via target_include_directories,
-    # so we propagate it explicitly so ionclaw-lib can find qrencode.h
-    target_include_directories(qrencode INTERFACE ${libqrencode_SOURCE_DIR})
-
-    target_link_libraries(ionclaw-lib PUBLIC qrencode)
-
-    if(IONCLAW_BUILD_SHARED)
-        target_link_libraries(ionclaw-shared PRIVATE qrencode)
-    endif()
-
-    target_compile_definitions(ionclaw-lib PUBLIC IONCLAW_HAS_QRENCODE)
-
-    if(IONCLAW_BUILD_SHARED)
-        target_compile_definitions(ionclaw-shared PUBLIC IONCLAW_HAS_QRENCODE)
     endif()
 endif()
 

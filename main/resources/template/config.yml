@@ -152,6 +152,7 @@ agents:
       - memory_search
       - mcp_client
       - environment
+      - qrcode
     model_params:
       max_tokens: 8192
       temperature: 0.1

@@ -101,6 +101,11 @@ elseif(WIN32)
     else()
         set(_ossl_target "VC-WIN32")
     endif()
+elseif(CMAKE_SYSTEM_NAME MATCHES "^(MSYS|CYGWIN)$")
+    # MSYS2: use pre-built OpenSSL + Poco from UCRT64 and c:/dev/Poco
+    message(STATUS "IonClaw: MSYS2 build — using system OpenSSL and pre-built Poco")
+    include(${CMAKE_CURRENT_LIST_DIR}/system-libs-msys2.cmake)
+    return()
 endif()
 
 # tvos/watchos: emit the missing configure targets and skip the apps (they call fork)

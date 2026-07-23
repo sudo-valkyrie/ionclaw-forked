@@ -69,6 +69,8 @@ set(IONCLAW_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/lib/src/ionclaw/tool/builtin/AgentsListTool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/lib/src/ionclaw/tool/builtin/BrowserTool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/lib/src/ionclaw/tool/builtin/VisionTool.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/src/ionclaw/tool/builtin/JsonToTableTool.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/src/ionclaw/tool/builtin/QrCodeTool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/lib/src/ionclaw/agent/ContextBuilder.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/lib/src/ionclaw/agent/AgentLoop.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/lib/src/ionclaw/agent/Orchestrator.cpp
