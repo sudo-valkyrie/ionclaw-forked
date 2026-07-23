@@ -14,8 +14,8 @@ android {
         minSdk = 24
 
         ndk {
-            // 64-bit only: llama.cpp does not build on 32-bit arm, and 32-bit abis are legacy
-            abiFilters += listOf("arm64-v8a", "x86_64")
+            // arm64 only: phone deployment
+            abiFilters += listOf("arm64-v8a")
         }
 
         externalNativeBuild {
