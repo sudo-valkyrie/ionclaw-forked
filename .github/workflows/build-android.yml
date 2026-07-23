@@ -1,12 +1,9 @@
-name: Build Android
+name: Build Android APK
 
 on:
   workflow_dispatch:
-  workflow_call:
-    inputs:
-      release:
-        type: boolean
-        default: false
+  push:
+    branches: [main]
 
 env:
   BUILD_TYPE: Release
@@ -57,11 +54,9 @@ jobs:
           cmake --build build/android-arm64-v8a --config ${{ env.BUILD_TYPE }} -j$(nproc)
 
       - name: Verify library
-        if: ${{ !inputs.release }}
         run: file build/android-arm64-v8a/lib/libionclaw.so
 
       - name: Build armeabi-v7a
-        if: ${{ inputs.release }}
         run: |
           cmake -B build/android-armeabi-v7a -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DIONCLAW_BUILD_SHARED=ON \
             -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
@@ -69,7 +64,6 @@ jobs:
           cmake --build build/android-armeabi-v7a --config ${{ env.BUILD_TYPE }} -j$(nproc)
 
       - name: Build x86_64
-        if: ${{ inputs.release }}
         run: |
           cmake -B build/android-x86_64 -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DIONCLAW_BUILD_SHARED=ON \
             -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
@@ -77,27 +71,47 @@ jobs:
           cmake --build build/android-x86_64 --config ${{ env.BUILD_TYPE }} -j$(nproc)
 
       - name: Build x86
-        if: ${{ inputs.release }}
         run: |
           cmake -B build/android-x86 -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DIONCLAW_BUILD_SHARED=ON \
             -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
             -DANDROID_ABI=x86 -DANDROID_PLATFORM=android-24 -DANDROID_STL=c++_static
           cmake --build build/android-x86 --config ${{ env.BUILD_TYPE }} -j$(nproc)
 
-      - name: Package libraries
-        if: ${{ inputs.release }}
+      - name: Copy .so to aar project
         run: |
           for abi in arm64-v8a armeabi-v7a x86_64 x86; do
-            mkdir -p dist/jniLibs/$abi
-            cp build/android-$abi/lib/libionclaw.so dist/jniLibs/$abi/
+            mkdir -p apps/android/library/src/main/jniLibs/$abi
+            cp build/android-$abi/lib/libionclaw.so apps/android/library/src/main/jniLibs/$abi/
           done
-          cp main/lib/include/ionclaw/ionclaw.h dist/
-          cp LICENSE.md dist/
-          tar -czf ionclaw-android.tar.gz -C dist .
+          # also copy libomp (OpenMP runtime)
+          find $ANDROID_NDK -name "libomp.so" | while read f; do
+            abi=$(basename $(dirname $f))
+            [ -d apps/android/library/src/main/jniLibs/$abi ] && cp "$f" apps/android/library/src/main/jniLibs/$abi/
+          done
 
-      - name: Upload artifact
-        if: ${{ inputs.release }}
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Build AAR
+        run: |
+          cd apps/android/library
+          ./gradlew assembleRelease
+
+      - name: Copy AAR to app
+        run: |
+          mkdir -p apps/android/app/libs
+          cp apps/android/library/build/outputs/aar/ionclaw-release.aar apps/android/app/libs/ionclaw.aar
+
+      - name: Build APK
+        run: |
+          cd apps/android/app
+          ./gradlew assembleDebug
+
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ionclaw-android
-          path: ionclaw-android.tar.gz
+          name: ionclaw-android-apk
+          path: apps/android/app/build/outputs/apk/debug/*.apk
