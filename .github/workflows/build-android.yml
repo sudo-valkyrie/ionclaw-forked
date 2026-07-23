@@ -74,10 +74,10 @@ jobs:
           cd apps/android/library
           ./gradlew assembleRelease
 
-      - name: Copy AAR to app
+      - name: Copy AAR to expected location
         run: |
-          mkdir -p apps/android/app/libs
-          cp apps/android/library/build/outputs/aar/ionclaw-release.aar apps/android/app/libs/ionclaw.aar
+          mkdir -p build/android-aar
+          cp apps/android/library/build/outputs/aar/ionclaw-release.aar build/android-aar/ionclaw.aar
 
       - name: Build APK
         run: |
